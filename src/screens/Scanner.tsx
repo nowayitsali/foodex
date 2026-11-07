@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { RestrictionProfile } from '../domain/types'
 import { CameraIcon, FlipIcon, MenuIcon, SearchIcon } from '../components/icons'
 import { restrictionNames } from '../components/ui'
+import { SuggestiveSearch } from '../components/ui/suggestive-search'
 import type { CheckRequest } from './CheckFlow'
 
 type Facing = 'environment' | 'user'
@@ -9,6 +10,9 @@ type CameraState =
   | { status: 'starting' }
   | { status: 'live' }
   | { status: 'error'; kind: 'denied' | 'insecure' | 'notfound' | 'other'; message?: string }
+
+// Typed out in the empty search box to show what you can search for.
+const SEARCH_SUGGESTIONS = ['Search Nutella', 'Search Celsius', "Search Lay's Classic", 'Search Oreo', 'Search Kit Kat']
 
 // Small photos cost fewer Gemini tokens and still read labels fine.
 const CAPTURE_WIDTH = 768
@@ -105,10 +109,12 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
       {flash && <div className="scanner-flash" />}
 
       <div className="scanner-top">
-        <button className="glass-btn" onClick={onSearch}>
-          <SearchIcon size={20} /> Search
-        </button>
-        <span className="scanner-brand">Foodex</span>
+        <SuggestiveSearch
+          className="ss-glass"
+          label="Search a food or product"
+          suggestions={SEARCH_SUGGESTIONS}
+          onSubmit={(query) => onCapture({ query, hints: hints.trim() })}
+        />
         <button className="glass-btn glass-icon" onClick={onMenu} aria-label="Menu">
           <MenuIcon />
         </button>
