@@ -11,7 +11,9 @@
 .sx-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(90% 70% at 50% 46%, transparent 55%, rgb(8 20 14 / 55%) 100%); }
 
 .sx .scanner-top { background: linear-gradient(to bottom, rgb(8 20 14 / 70%), transparent); }
-.sx-wordmark { flex: 1; text-align: center; font-size: 22px; font-weight: 750; letter-spacing: -1px; color: var(--sx-cream); text-shadow: 0 1px 8px rgb(0 0 0 / 35%); }
+/* Centered on the screen, so it lines up with the restriction chips below. */
+.sx .scanner-top > .foodex-home-button { margin-right: auto; }
+.sx-wordmark { position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 34px); translate: -50% -50%; pointer-events: none; line-height: 1; font-size: 22px; font-weight: 750; letter-spacing: -1px; color: var(--sx-cream); text-shadow: 0 1px 8px rgb(0 0 0 / 35%); }
 .sx-wordmark > span { color: var(--sx-sage); }
 .sx .glass-btn, .sx .scanner-top .foodex-home-button { background: rgb(19 44 33 / 45%); border-color: rgb(243 244 233 / 20%); }
 
