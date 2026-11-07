@@ -6,7 +6,7 @@ import { CameraIcon, SearchIcon } from '../components/icons'
 import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
-import { ExpandingSearch } from '../components/ui/expanding-search'
+import { SearchPopup } from '../components/SearchPopup'
 import type { CheckRequest } from './CheckFlow'
 
 type Facing = 'environment' | 'user'
@@ -15,8 +15,8 @@ type CameraState =
   | { status: 'live' }
   | { status: 'error'; kind: 'denied' | 'insecure' | 'notfound' | 'other'; message?: string }
 
-// Typed out in the empty search box to show what you can search for.
-const SEARCH_SUGGESTIONS = ['Search Nutella', 'Search Celsius', "Search Lay's Classic", 'Search Oreo', 'Search Kit Kat']
+// Offered in the search popup before the user types.
+const POPULAR_SEARCHES = ['Nutella', 'Celsius', "Lay's Classic", 'Oreo', 'Kit Kat']
 
 // Small photos cost fewer Gemini tokens and still read labels fine.
 const CAPTURE_WIDTH = 768
@@ -26,13 +26,12 @@ interface Props {
   active: boolean
   profile: RestrictionProfile
   onCapture: (req: CheckRequest) => void
-  onSearch: () => void
   /** The menu button, drawn in the top bar. */
   menu: ReactNode
   onHome: () => void
 }
 
-export function Scanner({ active, profile, onCapture, onSearch, menu, onHome }: Props) {
+export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [facing, setFacing] = useState<Facing>('environment')
   const [cam, setCam] = useState<CameraState>({ status: 'starting' })
@@ -119,12 +118,11 @@ export function Scanner({ active, profile, onCapture, onSearch, menu, onHome }: 
 
       <div className="scanner-top">
         <HomeButton onHome={onHome} />
-        {!searchOpen && <span className="scanner-brand">Foodex</span>}
-        <ExpandingSearch
+        <span className="scanner-brand">Foodex</span>
+        <SearchPopup
           open={searchOpen}
           onOpenChange={setSearchOpen}
-          label="Search a food or product"
-          suggestions={SEARCH_SUGGESTIONS}
+          popular={POPULAR_SEARCHES}
           onSubmit={(query) => onCapture({ query, hints: hints.trim() })}
         />
         {menu}
@@ -139,7 +137,7 @@ export function Scanner({ active, profile, onCapture, onSearch, menu, onHome }: 
       </div>
 
       {cam.status === 'error' ? (
-        <CameraProblem state={cam} onRetry={() => setAttempt((n) => n + 1)} onSearch={onSearch} />
+        <CameraProblem state={cam} onRetry={() => setAttempt((n) => n + 1)} onSearch={() => setSearchOpen(true)} />
       ) : (
         <div className="viewfinder" aria-hidden>
           <span /><span /><span /><span />

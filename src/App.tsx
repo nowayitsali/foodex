@@ -149,7 +149,6 @@ export default function App() {
           active={!check && !searchOpen}
           profile={profile}
           onCapture={(req) => setCheck(req)}
-          onSearch={() => setSearchOpen(true)}
           menu={<Menu open={menuOpen} user={user} demo={demo} onOpenChange={setMenuOpen} onGo={go} />}
           onHome={goHome}
         />

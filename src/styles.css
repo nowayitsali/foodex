@@ -749,22 +749,29 @@ input { font: inherit; color: inherit; }
 .mini-not_enough_info { background: var(--info-bg); color: var(--info); }
 .mini-not_enough_info::before { content: '?'; }
 
-/* Suggestive search: input whose empty state types out example searches. */
-.ss-wrapper {
+.scanner-top .scanner-brand { flex: 1; text-align: center; }
+
+/* Search popup (components/SearchPopup.tsx): the search button morphs into this. */
+.sp-layer { position: fixed; inset: 0; z-index: 30; display: flex; justify-content: center; align-items: flex-start; padding: calc(env(safe-area-inset-top) + 12px) 12px 12px; }
+.sp-backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 55%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.sp-panel {
   position: relative;
+  width: min(520px, 100%);
+  /* Fixed height so typing never resizes the panel and re-runs the morph. */
+  height: min(520px, calc(100dvh - 24px - env(safe-area-inset-top)));
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  min-width: 0;
+  flex-direction: column;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: #101613;
+  color: #fff;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 50%);
 }
-.ss-leading { display: inline-flex; flex-shrink: 0; color: var(--muted); }
-.ss-input {
+.sp-cmd { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.sp-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sp-input-row { display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 8px 0 16px; border-bottom: 1px solid rgb(255 255 255 / 10%); }
+.sp-input-icon { color: #7fe0ae; flex: none; }
+.sp-input-row input {
   flex: 1;
   min-width: 0;
   height: 100%;
@@ -773,59 +780,29 @@ input { font: inherit; color: inherit; }
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 1rem; /* 16px stops iOS zooming in on focus */
+  font-size: 1.05rem; /* over 16px stops iOS zooming in on focus */
 }
-.ss-input::placeholder { color: var(--muted); }
-.ss-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
-.ss-overlay {
-  position: absolute;
-  left: 42px;
-  right: 16px;
-  top: 0;
-  bottom: 0;
+.sp-input-row input::placeholder { color: rgb(255 255 255 / 45%); }
+.sp-close { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgb(255 255 255 / 8%); color: inherit; }
+.sp-close:hover, .sp-close:active { background: rgb(255 255 255 / 16%); }
+.sp-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px; }
+.sp-list [cmdk-group-heading] { padding: 12px 10px 6px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(255 255 255 / 50%); }
+.sp-heading-row { display: flex; align-items: center; justify-content: space-between; }
+.sp-clear { border: 0; background: transparent; color: #7fe0ae; font: inherit; font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 4px; }
+.sp-item {
   display: flex;
   align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.ss-reveal { display: inline-flex; align-items: center; overflow: hidden; white-space: nowrap; }
-.ss-suggestion { font-size: 0.95rem; color: var(--muted); user-select: none; }
-.ss-cursor { display: inline-block; width: 1px; height: 1.1em; margin-left: 4px; background: currentColor; color: var(--muted); }
-
-/* Glass version over the camera. */
-.ss-glass {
-  flex: 1;
-  border-color: rgb(255 255 255 / 22%);
-  background: rgb(20 28 24 / 45%);
-  color: #fff;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-.ss-glass .ss-leading,
-.ss-glass .ss-suggestion,
-.ss-glass .ss-input::placeholder { color: rgb(255 255 255 / 78%); }
-.ss-glass .ss-cursor { color: rgb(255 255 255 / 78%); }
-.ss-has-trailing { padding-right: 4px; }
-.ss-has-trailing .ss-overlay { right: 48px; }
-.ss-close {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 10px 0 6px;
+  border-radius: 14px;
+  font-weight: 600;
   cursor: pointer;
+  user-select: none;
 }
-.ss-close:hover, .ss-close:active { background: rgb(255 255 255 / 16%); }
-
-/* Expanding search: round button that opens into the search field. */
-.xs { display: flex; flex: 0 0 44px; min-width: 0; }
-.xs-open { flex: 1 1 auto; margin-right: 10px; }
-.xs-field { min-width: 0; border-radius: 999px; overflow: hidden; }
-.xs-field .ss-wrapper { width: 100%; }
-.scanner-top .scanner-brand { flex: 1; text-align: center; }
+.sp-item[data-selected='true'] { background: rgb(255 255 255 / 9%); }
+.sp-item-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 11px; background: rgb(255 255 255 / 8%); color: rgb(255 255 255 / 75%); }
+.sp-item-main .sp-item-icon { background: rgb(63 191 127 / 18%); color: #7fe0ae; }
+.sp-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-item-end { flex: none; color: rgb(255 255 255 / 40%); }
+.sp-foot { padding: 10px 16px 14px; border-top: 1px solid rgb(255 255 255 / 8%); font-size: 0.75rem; color: rgb(255 255 255 / 45%); }
