@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
 import type { Identification } from '../src/domain/types'
 import { identifyPhoto, MissingKeyError } from './gemini'
-import { getProduct, productToResearch, searchProducts } from './openfoodfacts'
+import { getProduct, productToIdentification, productToResearch, searchProducts } from './openfoodfacts'
 
 // Runs the API routes inside the Vite dev server, so the Gemini key stays
 // on the server and the prototype needs only `npm run dev`.
@@ -38,7 +38,12 @@ function send(res: ServerResponse, status: number, body: unknown) {
 }
 
 // Typed Search costs no Gemini calls. A photo costs exactly one.
-async function identify(b: { image?: string; query?: string; hints?: string }): Promise<Identification[]> {
+async function identify(b: { image?: string; query?: string; code?: string; hints?: string }): Promise<Identification[]> {
+  // A scanned barcode or QR code: look the product up directly.
+  if (typeof b.code === 'string' && /^\d{8,14}$/.test(b.code)) {
+    const product = await getProduct(b.code)
+    return product ? [productToIdentification(product)] : []
+  }
   const hints = typeof b.hints === 'string' ? b.hints.trim() : ''
   if (typeof b.image === 'string' && b.image) {
     const guesses = await identifyPhoto(b.image, hints || undefined)

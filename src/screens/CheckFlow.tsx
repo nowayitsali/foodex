@@ -15,6 +15,8 @@ export interface CheckRequest {
   preview?: string
   /** Typed name (Search). */
   query?: string
+  /** Product barcode read from a barcode or QR code. Skips straight to results. */
+  code?: string
   hints: string
 }
 
@@ -65,9 +67,12 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
   function runIdentify(h: string) {
     const id = ++run.current
     setStep({ kind: 'identifying' })
-    identify({ image: request.image, query: request.query, hints: h.trim() || undefined })
+    identify({ image: request.image, query: request.query, code: request.code, hints: h.trim() || undefined })
       .then((items) => {
-        if (id === run.current) setStep(items.length ? { kind: 'candidates', items } : { kind: 'rejected', empty: true })
+        if (id !== run.current) return
+        // A scanned code names one exact product, so there is nothing to confirm.
+        if (request.code && items.length === 1) doResearch(items[0], id)
+        else setStep(items.length ? { kind: 'candidates', items } : { kind: 'rejected', empty: true })
       })
       .catch((e) => {
         if (id === run.current) setStep({ kind: 'error', message: errorMessage(e), retry: () => runIdentify(h) })
@@ -128,8 +133,8 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
         <div className="check-subject">
           {request.preview ? <img src={request.preview} alt="Your Scan" /> : null}
           <div>
-            <span className="muted small">{request.image ? 'Scan' : 'Search'}</span>
-            <strong>{request.query ?? 'Photo from your camera'}</strong>
+            <span className="muted small">{request.code ? 'Barcode' : request.image ? 'Scan' : 'Search'}</span>
+            <strong>{request.code ?? request.query ?? 'Photo from your camera'}</strong>
             {hints.trim() && <span className="muted small">Hints: {hints.trim()}</span>}
           </div>
         </div>
@@ -176,7 +181,15 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
           </section>
         )}
 
-        {step.kind === 'rejected' && (
+        {step.kind === 'rejected' && request.code && (
+          <section className="card retry">
+            <h2>This barcode isn't in Open Food Facts yet</h2>
+            <p className="muted small">Search for the product by name instead, or take a photo of the label.</p>
+            <button className="btn btn-primary btn-block" onClick={onSearchInstead}>Search by name</button>
+          </section>
+        )}
+
+        {step.kind === 'rejected' && !request.code && (
           <section className="card retry">
             <h2>{step.empty ? "Foodex couldn't tell what this is" : 'Help Foodex find it'}</h2>
             <p className="muted small">Add a Hint the {request.image ? 'photo' : 'name'} doesn't show, like the brand, flavour or restaurant.</p>

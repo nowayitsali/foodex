@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { RestrictionProfile } from '../domain/types'
 import { AnimatePresence, motion } from 'motion/react'
-import { Camera, CameraOff, Plus, RotateCcw, ScanLine, Search, SwitchCamera } from 'lucide-react'
+import { Barcode, Camera, CameraOff, Plus, QrCode, RotateCcw, ScanLine, Search, ShieldCheck, SwitchCamera } from 'lucide-react'
 import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { SearchPopup } from '../components/SearchPopup'
-import { AnimatedGroup, ShineButton, TextLoop } from '../components/premium'
+import { ShineButton, TextLoop } from '../components/premium'
+import { getDetector, productCode } from '../lib/codes'
 import './scanner.css'
 import type { CheckRequest } from './CheckFlow'
 
@@ -22,7 +23,7 @@ const POPULAR_SEARCHES = ['Nutella', 'Celsius', "Lay's Classic", 'Oreo', 'Kit Ka
 // Small photos cost fewer Gemini tokens and still read labels fine.
 const CAPTURE_WIDTH = 768
 
-const TIPS = ['Point at a package label, then tap to Scan.', 'Snap a restaurant menu.', 'Or the plate in front of you.']
+const TIPS = ['Point at a barcode or QR code. It scans by itself.', 'Or point at a package label, then tap to Scan.', 'Snap a restaurant menu.', 'Or the plate in front of you.']
 
 interface Props {
   /** False while something covers the Scanner, so the camera turns off. */
@@ -47,6 +48,11 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
   const [flipTurns, setFlipTurns] = useState(0)
   const [flash, setFlash] = useState(false)
   const [shots, setShots] = useState(0)
+  // A code seen in the camera: the product code we're opening, or a notice that it isn't one.
+  const [found, setFound] = useState<{ code: string } | { notProduct: true } | null>(null)
+  const lastCode = useRef({ code: '', seenAt: 0 })
+  const latest = useRef({ onCapture, hints })
+  latest.current = { onCapture, hints }
 
   useEffect(() => {
     if (!active) return
@@ -93,6 +99,59 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
     }
   }, [active, facing, attempt])
 
+  // Watch the live view for barcodes and QR codes, and open a product as soon as one shows up.
+  // Costs no Gemini calls: the code goes straight to Open Food Facts.
+  useEffect(() => {
+    if (!active || cam.status !== 'live') return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let noticeUntil = 0
+    setFound(null)
+    // The code that was just checked is probably still in view. Skip it until it leaves the frame.
+    lastCode.current.seenAt = Date.now()
+
+    getDetector().then((detector) => {
+      if (!detector || stopped) return
+      const tick = async () => {
+        if (stopped) return
+        const video = videoRef.current
+        if (video && video.readyState >= 2 && !document.hidden) {
+          try {
+            for (const hit of await detector.detect(video)) {
+              const code = productCode(hit.rawValue)
+              const now = Date.now()
+              if (!code) {
+                if (hit.format === 'qr_code' && now > noticeUntil) {
+                  noticeUntil = now + 4000
+                  setFound({ notProduct: true })
+                  setTimeout(() => !stopped && setFound((f) => (f && 'notProduct' in f ? null : f)), 2200)
+                }
+                continue
+              }
+              const again = code === lastCode.current.code && now - lastCode.current.seenAt < 1500
+              lastCode.current = { code, seenAt: now }
+              if (again) continue
+              stopped = true
+              setFound({ code })
+              setShots((n) => n + 1)
+              setTimeout(() => latest.current.onCapture({ code, hints: latest.current.hints.trim() }), 450)
+              return
+            }
+          } catch {
+            // A frame that can't be read; try the next one.
+          }
+        }
+        timer = setTimeout(tick, 250)
+      }
+      tick()
+    })
+
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
+  }, [active, cam.status])
+
   function capture() {
     const video = videoRef.current
     if (!video || !video.videoWidth) return
@@ -113,7 +172,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
   const live = cam.status === 'live'
 
   return (
-    <main className={`scanner sx${live ? ' sx-live' : ''}`}>
+    <main className={`scanner sx${live ? ' sx-live' : ''}${found && 'code' in found ? ' sx-found' : ''}`}>
       <video
         ref={videoRef}
         className={`scanner-video${facing === 'user' ? ' mirrored' : ''}`}
@@ -141,16 +200,15 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
       </div>
 
       <div className="sx-checking">
-        <span className="sx-checking-label">{names.length ? 'Checking for' : 'No restrictions yet'}</span>
-        {names.length ? (
-          <AnimatedGroup className="sx-chips" delay={0.15} stagger={0.05}>
-            {names.map((n) => <span key={n} className="sx-chip">{n}</span>)}
-          </AnimatedGroup>
-        ) : (
-          <button type="button" className="sx-chip sx-chip-add" onClick={onEditRestrictions}>
-            <Plus size={13} /> Add your restrictions
-          </button>
-        )}
+        <button
+          type="button"
+          className={`sx-pill${names.length ? '' : ' sx-pill-empty'}`}
+          onClick={onEditRestrictions}
+          aria-label={names.length ? `Checking for ${names.join(', ')}. Edit restrictions` : 'Add your restrictions'}
+        >
+          {names.length ? <ShieldCheck size={15} className="sx-pill-icon" /> : <Plus size={15} className="sx-pill-icon" />}
+          <span className="sx-pill-text">{names.length ? names.join(' · ') : 'Add your restrictions'}</span>
+        </button>
       </div>
 
       {cam.status === 'error' ? (
@@ -158,7 +216,6 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
       ) : (
         <motion.div
           className="viewfinder sx-finder"
-          aria-hidden
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
@@ -166,6 +223,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
           <motion.div
             key={shots}
             className="sx-corners"
+            aria-hidden
             initial={shots ? { scale: 0.92 } : false}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 420, damping: 18 }}
@@ -173,6 +231,20 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
             <span /><span /><span /><span />
           </motion.div>
           {live && <div className="sx-scanline" />}
+          <AnimatePresence>
+            {found && (
+              <motion.p
+                key={'code' in found ? found.code : 'not-product'}
+                className={`sx-status sx-code${'code' in found ? '' : ' sx-code-miss'}`}
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0 }}
+                role="status"
+              >
+                {'code' in found ? <><Barcode size={15} /> Found {found.code}</> : <><QrCode size={15} /> Not a product code</>}
+              </motion.p>
+            )}
+          </AnimatePresence>
           <AnimatePresence>
             {cam.status === 'starting' && (
               <motion.p className="sx-status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>

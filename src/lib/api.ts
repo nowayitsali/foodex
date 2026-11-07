@@ -11,7 +11,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T
 }
 
-export async function identify(input: { image?: string; query?: string; hints?: string }) {
+export async function identify(input: { image?: string; query?: string; code?: string; hints?: string }) {
   const { identifications } = await post<{ identifications: Identification[] }>('/api/identify', input)
   return identifications
 }

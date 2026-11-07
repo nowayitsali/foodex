@@ -5,10 +5,11 @@ import type { Finding, Identification, Research, Source } from '../src/domain/ty
 // Data is community-contributed and licensed under ODbL; the UI credits it.
 
 const USER_AGENT = 'Foodex/0.1 (hackathon prototype)'
-const PRODUCT_FIELDS = 'code,product_name,brands,ingredients_text,ingredients_text_en,allergens_tags,traces_tags,labels_tags,states_tags'
+const PRODUCT_FIELDS = 'code,product_name,brands,image_front_small_url,ingredients_text,ingredients_text_en,allergens_tags,traces_tags,labels_tags,states_tags'
 const TIMEOUT_MS = 10_000
 
 export interface OffProduct {
+  image_front_small_url?: string
   code: string
   product_name?: string
   brands?: string
@@ -71,6 +72,11 @@ export function productToResearch(p: OffProduct): Research {
   ]
   const complete = !!ingredientsText && (p.states_tags ?? []).includes('en:ingredients-completed')
   return { findings, ingredientsComplete: complete }
+}
+
+/** One looked-up product as an Identification (for a scanned code). */
+export function productToIdentification(p: OffProduct): Identification {
+  return hitsToIdentifications([{ ...p, product_name: p.product_name || `Product ${p.code}` }])[0]
 }
 
 export function hitsToIdentifications(hits: OffHit[]): Identification[] {
