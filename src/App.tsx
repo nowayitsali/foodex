@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
-import type { RestrictionProfile } from './domain/types'
+import type { RestrictionId, RestrictionProfile } from './domain/types'
 import { supabase } from './lib/supabase'
 import { clearLocalProfile, EMPTY_PROFILE, loadProfile, saveProfile } from './lib/profile'
 import { Spinner } from './components/ui'
 import { Menu } from './components/Menu'
+import { HomeButton } from './components/HomeButton'
 import { CheckFlow, type CheckRequest } from './screens/CheckFlow'
 import { Login } from './screens/Login'
+import { Landing } from './screens/Landing'
 import { Nearby } from './screens/Nearby'
 import { Onboarding } from './screens/Onboarding'
 import { Profile } from './screens/Profile'
@@ -37,6 +39,8 @@ function writeDemoFlag(on: boolean) {
 }
 
 export default function App() {
+  const [entry, setEntry] = useState<'landing' | 'login' | 'app' | 'restaurants'>('landing')
+  const [browseRestrictions, setBrowseRestrictions] = useState<RestrictionId[]>([])
   const [authReady, setAuthReady] = useState(!supabase)
   const [user, setUser] = useState<User | null>(null)
   const [demo, setDemo] = useState(() => !supabase && readDemoFlag())
@@ -79,6 +83,7 @@ export default function App() {
       setDemo(false)
     }
     setUser(null)
+    setEntry('landing')
     setScreen('scanner')
     setMenuOpen(false)
     setCheck(null)
@@ -89,28 +94,55 @@ export default function App() {
     setScreen(next)
   }
 
-  if (!authReady) return <div className="splash"><Spinner label="Loading Foodex" /></div>
+  function goHome() {
+    setEntry('landing')
+    setScreen('scanner')
+    setMenuOpen(false)
+    setSearchOpen(false)
+    setCheck(null)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
+  function withHome(content: ReactNode) {
+    return <><header className="foodex-home-header"><HomeButton onHome={goHome} /></header>{content}</>
+  }
+
+  if (entry === 'landing') return <Landing
+    onHome={goHome}
+    signedIn={signedIn}
+    onRestaurants={(selected) => { setBrowseRestrictions(selected); setEntry('restaurants') }}
+    onScan={() => { setScreen('scanner'); setEntry('app') }}
+    onLogin={() => { setScreen('profile'); setEntry('login') }}
+  />
+
+  if (entry === 'restaurants') return withHome(<RestaurantSearch
+    profile={{ ...(profile ?? EMPTY_PROFILE), restrictions: [...new Set([...(profile?.restrictions ?? []), ...browseRestrictions])] }}
+    onBack={goHome}
+  />)
+
+  if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
 
   if (!signedIn) {
-    return (
+    return withHome(
       <Login
         onDemo={() => {
           writeDemoFlag(true)
           setDemo(true)
+          setEntry('app')
         }}
       />
     )
   }
 
-  if (profile === undefined) return <div className="splash"><Spinner /></div>
+  if (profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
 
   if (profile === null) {
-    return <Onboarding user={user} onSave={updateProfile} />
+    return withHome(<Onboarding user={user} onSave={updateProfile} />)
   }
 
   const back = () => setScreen('scanner')
 
-  return (
+  return withHome(
     <div className="app">
       {screen === 'scanner' && (
         <Scanner

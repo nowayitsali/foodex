@@ -1,0 +1,7 @@
+.foodex-home-header{height:99px;max-width:1220px;padding:0 48px;margin:0 auto;display:flex;align-items:center;border-bottom:1px solid var(--border)}
+.foodex-home-button{display:inline-flex;align-items:center;gap:10px;border:0;background:transparent;padding:0;min-height:44px;color:var(--text);cursor:pointer;flex-shrink:0;text-decoration:none}
+.fd-landing .foodex-home-button{color:#203c32}.foodex-home-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:var(--brand-soft);color:var(--brand)}
+.fd-landing .foodex-home-icon{background:#e4ebd8;color:#203c32}.foodex-home-wordmark{font-family:Arial,Helvetica,sans-serif;font-size:30px;font-weight:750;letter-spacing:-1.5px;line-height:1.2}.foodex-home-wordmark>span{color:#849965}
+.foodex-home-button:hover .foodex-home-icon{box-shadow:0 0 0 3px #8a9c6c30}.foodex-home-button:focus-visible{outline:3px solid #7c9868;outline-offset:5px;border-radius:8px}
+@media(max-width:900px){.foodex-home-header{padding:0 28px}}
+@media(max-width:600px){.foodex-home-header{height:78px;padding:0 22px}.foodex-home-wordmark{font-size:26px}}
