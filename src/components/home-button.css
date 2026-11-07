@@ -5,3 +5,12 @@
 .foodex-home-button:hover .foodex-home-icon{box-shadow:0 0 0 3px #8a9c6c30}.foodex-home-button:focus-visible{outline:3px solid #7c9868;outline-offset:5px;border-radius:8px}
 @media(max-width:900px){.foodex-home-header{padding:0 28px}}
 @media(max-width:600px){.foodex-home-header{height:78px;padding:0 22px}.foodex-home-wordmark{font-size:26px}}
+
+/* Keep Home inside the full-screen camera toolbar. */
+.scanner-top{gap:10px}
+.scanner-top .foodex-home-button{width:44px;height:44px;min-height:44px;justify-content:center;border:1px solid rgb(255 255 255 / 22%);border-radius:999px;background:rgb(20 28 24 / 45%);color:#fff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.scanner-top .foodex-home-icon{width:auto;height:auto;border-radius:0;background:transparent;color:inherit}
+.scanner-top .foodex-home-wordmark{display:none}
+.scanner-top .foodex-home-button:hover{background:rgb(255 255 255 / 18%)}
+.scanner-top .foodex-home-button:hover .foodex-home-icon{box-shadow:none}
+.scanner-top .xs-open{margin-right:0}
