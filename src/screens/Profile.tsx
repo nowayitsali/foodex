@@ -1,6 +1,8 @@
 import type { User } from '@supabase/supabase-js'
 import type { RestrictionProfile } from '../domain/types'
+import { Pencil, ShieldCheck } from 'lucide-react'
 import { PageHeader, ProfileSummary } from '../components/ui'
+import { AnimatedGroup } from '../components/premium'
 
 export function displayName(user: User | null) {
   const m = user?.user_metadata ?? {}
@@ -26,23 +28,34 @@ interface Props {
 }
 
 export function Profile({ user, profile, onBack, onEdit }: Props) {
+  const restrictions = profile.restrictions.length + profile.custom.length
   return (
     <main className="page">
       <PageHeader title="Profile" onBack={onBack} />
-      <section className="profile-head">
-        <Avatar user={user} />
-        <div>
-          <h2>{displayName(user)}</h2>
-          {user ? <p className="muted">{user.email}</p> : <p className="muted">Demo mode: saved on this device only</p>}
+      <AnimatedGroup className="page-body" stagger={0.08}>
+        <section className="cr-profile-hero">
+          <Avatar user={user} size={64} />
+          <div>
+            <h2>{displayName(user)}</h2>
+            {user && <p>{user.email}</p>}
+            <span className="cr-mode"><ShieldCheck size={12} /> {user ? 'Synced to your account' : 'Demo · on this device'}</span>
+          </div>
+        </section>
+
+        <div className="cr-stats">
+          <div className="cr-stat"><strong>{restrictions}</strong><span>Restrictions</span></div>
+          <div className="cr-stat"><strong>{profile.custom.length}</strong><span>Custom</span></div>
+          <div className="cr-stat"><strong>{profile.cuisines.length}</strong><span>Cuisines</span></div>
         </div>
-      </section>
-      <section className="card">
-        <div className="card-title-row">
-          <h2>Restriction profile</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onEdit}>Edit</button>
-        </div>
-        <ProfileSummary profile={profile} />
-      </section>
+
+        <section className="card">
+          <div className="card-title-row">
+            <h2>Restriction profile</h2>
+            <button type="button" className="cr-edit" onClick={onEdit}><Pencil size={13} /> Edit</button>
+          </div>
+          <ProfileSummary profile={profile} />
+        </section>
+      </AnimatedGroup>
     </main>
   )
 }

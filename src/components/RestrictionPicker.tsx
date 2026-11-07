@@ -1,11 +1,39 @@
 import { useState } from 'react'
 import { CATEGORY_LABELS, CUISINES, RESTRICTIONS } from '../domain/restrictions'
 import type { CustomRestriction, RestrictionCategory, RestrictionId, RestrictionProfile } from '../domain/types'
-import { CheckIcon } from './icons'
+import type { ReactNode } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Check, HeartPulse, Info, Leaf, MoonStar, Utensils } from 'lucide-react'
+import { ShineButton } from './premium'
 
 // Picks the Restriction profile. Used on first sign-in and in Settings.
 
 const CATEGORIES: RestrictionCategory[] = ['religious', 'lifestyle', 'medical']
+
+const GROUP_META: Record<RestrictionCategory, { icon: ReactNode; blurb: string }> = {
+  religious: { icon: <MoonStar size={17} />, blurb: 'Faith-based rules' },
+  lifestyle: { icon: <Leaf size={17} />, blurb: 'How you choose to eat' },
+  medical: { icon: <HeartPulse size={17} />, blurb: 'Allergies and intolerances' },
+}
+
+/** The check mark that grows into a picked chip. */
+function ChipCheck({ on }: { on: boolean }) {
+  return (
+    <AnimatePresence initial={false}>
+      {on && (
+        <motion.span
+          style={{ display: 'inline-flex', overflow: 'hidden' }}
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: 15, opacity: 1 }}
+          exit={{ width: 0, opacity: 0 }}
+          transition={{ type: 'spring', bounce: 0.3, duration: 0.35 }}
+        >
+          <Check size={15} strokeWidth={2.5} />
+        </motion.span>
+      )}
+    </AnimatePresence>
+  )
+}
 
 const OTHER_HINT: Record<CustomRestriction['category'], string> = {
   religious: 'e.g. Jain, no beef',
@@ -76,7 +104,12 @@ export function RestrictionPicker({ initial, submitLabel, onSave }: Props) {
     <div className="picker">
       {CATEGORIES.map((cat) => (
         <section key={cat} className="card picker-group">
-          <h2>{CATEGORY_LABELS[cat]}</h2>
+          <GroupHead
+            icon={GROUP_META[cat].icon}
+            title={CATEGORY_LABELS[cat]}
+            blurb={GROUP_META[cat].blurb}
+            count={RESTRICTIONS.filter((r) => r.category === cat && selected.has(r.id)).length}
+          />
           <div className="chip-row">
             {RESTRICTIONS.filter((r) => r.category === cat).map((r) => {
               const on = selected.has(r.id)
@@ -91,7 +124,7 @@ export function RestrictionPicker({ initial, submitLabel, onSave }: Props) {
                     changed()
                   }}
                 >
-                  {on && <CheckIcon size={15} />}
+                  <ChipCheck on={on} />
                   {r.label}
                 </button>
               )
@@ -116,8 +149,7 @@ export function RestrictionPicker({ initial, submitLabel, onSave }: Props) {
       ))}
 
       <section className="card picker-group">
-        <h2>Cuisine preferences</h2>
-        <p className="muted small">Only changes the order of results. It never overrides a restriction.</p>
+        <GroupHead icon={<Utensils size={17} />} title="Cuisine preferences" blurb="Only changes the order of results. It never overrides a restriction." count={cuisines.size} />
         <div className="chip-row">
           {CUISINES.map((c) => {
             const on = cuisines.has(c)
@@ -132,7 +164,7 @@ export function RestrictionPicker({ initial, submitLabel, onSave }: Props) {
                   changed()
                 }}
               >
-                {on && <CheckIcon size={15} />}
+                <ChipCheck on={on} />
                 {c}
               </button>
             )
@@ -141,15 +173,43 @@ export function RestrictionPicker({ initial, submitLabel, onSave }: Props) {
       </section>
 
       <p className="muted small picker-strict">
+        <Info size={14} />
         Every restriction is strict: any trace, including "may contain", counts as Doesn't fit.
       </p>
 
       <div className="sticky-actions">
         {error && <p className="note note-error" role="alert">{error}</p>}
-        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : saved ? 'Saved' : `${submitLabel}${count ? ` (${count})` : ''}`}
-        </button>
+        <ShineButton className="cr-save" onClick={save} disabled={saving}>
+          {saved && <Check size={17} />}
+          {saving ? 'Saving…' : saved ? 'Saved' : submitLabel}
+          {!saving && !saved && count > 0 && <span className="cr-save-count">{count}</span>}
+        </ShineButton>
       </div>
+    </div>
+  )
+}
+
+function GroupHead({ icon, title, blurb, count }: { icon: ReactNode; title: string; blurb: string; count: number }) {
+  return (
+    <div className="cr-group-head">
+      <span className="cr-group-icon">{icon}</span>
+      <div>
+        <h2>{title}</h2>
+        <p>{blurb}</p>
+      </div>
+      <AnimatePresence>
+        {count > 0 && (
+          <motion.span
+            key="count"
+            className="cr-group-count"
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.6, opacity: 0 }}
+          >
+            {count}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

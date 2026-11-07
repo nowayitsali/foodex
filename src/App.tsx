@@ -16,6 +16,7 @@ import { RestaurantSearch } from './screens/RestaurantSearch'
 import { Scanner } from './screens/Scanner'
 import { SearchSheet } from './screens/SearchSheet'
 import { Settings } from './screens/Settings'
+import './screens/cream.css'
 
 export type Screen = 'scanner' | 'nearby' | 'restaurants' | 'profile' | 'settings'
 
@@ -138,12 +139,14 @@ export default function App() {
   if (profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
 
   if (profile === null) {
-    return withHome(<Onboarding user={user} onSave={updateProfile} />)
+    return <div className="cr">{withHome(<Onboarding user={user} onSave={updateProfile} />)}</div>
   }
 
   const back = () => setScreen('scanner')
 
-  return withHome(
+  const cream = screen === 'profile' || screen === 'settings'
+
+  const page = withHome(
     <div className="app">
       {screen === 'scanner' && (
         <Scanner
@@ -183,4 +186,5 @@ export default function App() {
     </div>,
     screen !== 'scanner',
   )
+  return cream ? <div className="cr">{page}</div> : page
 }
