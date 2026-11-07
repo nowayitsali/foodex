@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { RestrictionProfile } from '../domain/types'
-import { CameraIcon, FlipIcon, SearchIcon } from '../components/icons'
+import { motion } from 'motion/react'
+import { Camera, SwitchCamera } from 'lucide-react'
+import { CameraIcon, SearchIcon } from '../components/icons'
+import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { ExpandingSearch } from '../components/ui/expanding-search'
@@ -36,6 +39,8 @@ export function Scanner({ active, profile, onCapture, onSearch, menu, onHome }: 
   const [attempt, setAttempt] = useState(0)
   const [hints, setHints] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  const [hintOpen, setHintOpen] = useState(false)
+  const [flipTurns, setFlipTurns] = useState(0)
   const [flash, setFlash] = useState(false)
 
   useEffect(() => {
@@ -143,27 +148,38 @@ export function Scanner({ active, profile, onCapture, onSearch, menu, onHome }: 
       )}
 
       <div className="scanner-bottom">
-        <input
-          className="hint-input"
-          type="text"
-          value={hints}
-          onChange={(e) => setHints(e.target.value)}
-          placeholder="Add a Hint: brand or restaurant (optional)"
-          enterKeyHint="done"
-        />
         <div className="shutter-row">
-          <span className="shutter-side" />
-          <button className="shutter" onClick={capture} disabled={!live} aria-label="Scan">
-            <span />
-          </button>
-          <button
-            className="glass-btn glass-icon shutter-side"
-            onClick={() => setFacing(facing === 'environment' ? 'user' : 'environment')}
+          <HintPopover open={hintOpen} onOpenChange={setHintOpen} value={hints} onChange={setHints} />
+          <motion.button
+            className="shutter"
+            onClick={capture}
+            disabled={!live}
+            aria-label="Scan"
+            whileTap={live ? { scale: 0.9 } : undefined}
+            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+          >
+            <span className="shutter-disc">
+              <Camera size={26} strokeWidth={1.9} />
+            </span>
+          </motion.button>
+          <motion.button
+            className="glass-btn glass-icon"
+            onClick={() => {
+              setFacing(facing === 'environment' ? 'user' : 'environment')
+              setFlipTurns((n) => n + 1)
+            }}
             disabled={cam.status === 'error' && cam.kind !== 'other'}
             aria-label={facing === 'environment' ? 'Switch to front camera' : 'Switch to back camera'}
+            whileTap={{ scale: 0.9 }}
           >
-            <FlipIcon />
-          </button>
+            <motion.span
+              className="mp-icon"
+              animate={{ rotate: flipTurns * 180 }}
+              transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
+            >
+              <SwitchCamera size={20} />
+            </motion.span>
+          </motion.button>
         </div>
         <p className="scanner-tip">Point at a package, plate or menu, then tap to Scan.</p>
       </div>
