@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
-import type { RestrictionId, RestrictionProfile } from './domain/types'
+import type { RestrictionProfile } from './domain/types'
 import { supabase } from './lib/supabase'
 import { clearLocalProfile, EMPTY_PROFILE, loadProfile, saveProfile } from './lib/profile'
 import { Spinner } from './components/ui'
@@ -8,10 +8,8 @@ import { Menu } from './components/Menu'
 import { HomeButton } from './components/HomeButton'
 import { CheckFlow, type CheckRequest } from './screens/CheckFlow'
 import { Login } from './screens/Login'
-import { Landing } from './screens/Landing'
 import { Nearby } from './screens/Nearby'
 import { Onboarding } from './screens/Onboarding'
-import { Profile } from './screens/Profile'
 import { RestaurantSearch } from './screens/RestaurantSearch'
 import { Scanner } from './screens/Scanner'
 import { SearchSheet } from './screens/SearchSheet'
@@ -41,7 +39,7 @@ function writeDemoFlag(on: boolean) {
 
 export default function App() {
   const [entry, setEntry] = useState<'landing' | 'login' | 'app' | 'restaurants'>('landing')
-  const [browseRestrictions, setBrowseRestrictions] = useState<RestrictionId[]>([])
+  const [browseProfile, setBrowseProfile] = useState<RestrictionProfile | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [user, setUser] = useState<User | null>(null)
   const [demo, setDemo] = useState(() => !supabase && readDemoFlag())
@@ -83,6 +81,8 @@ export default function App() {
       clearLocalProfile()
       setDemo(false)
     }
+    setProfile(undefined)
+    setBrowseProfile(null)
     setUser(null)
     setEntry('landing')
     setScreen('scanner')
@@ -92,6 +92,7 @@ export default function App() {
 
   function go(next: Screen) {
     setMenuOpen(false)
+    if (next === 'profile' || next === 'settings') { goHome(); return }
     setScreen(next)
   }
 
@@ -108,22 +109,30 @@ export default function App() {
     return <>{showHeader && <header className="foodex-home-header"><HomeButton onHome={goHome} /></header>}{content}</>
   }
 
-  if (entry === 'landing') return <Landing
-    onHome={goHome}
-    signedIn={signedIn}
-    onRestaurants={(selected) => { setBrowseRestrictions(selected); setEntry('restaurants') }}
-    onScan={() => { setScreen('scanner'); setEntry('app') }}
-    onLogin={() => { setScreen('profile'); setEntry('login') }}
-  />
+  if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
+
+  if (entry === 'landing' || (user && screen === 'settings' && entry !== 'restaurants')) {
+    if (signedIn && profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
+    return <div className="cr"><Settings
+      key={user?.id ?? 'guest'}
+      home signedIn={!!user}
+      profile={user ? loadProfile(user) ?? profile ?? EMPTY_PROFILE : profile ?? loadProfile(null) ?? EMPTY_PROFILE}
+      demo={!user}
+      onSave={updateProfile} onSignOut={signOut} onBack={goHome} onHome={goHome}
+      onLogin={() => { setScreen('settings'); setEntry('login') }}
+      onRestaurants={(next) => { setBrowseProfile(next); setScreen('restaurants'); setEntry('restaurants'); window.scrollTo({top:0}) }}
+      onScan={() => { if (!user) { writeDemoFlag(true); setDemo(true) } setScreen('scanner'); setEntry('app'); window.scrollTo({top:0}) }}
+    /></div>
+  }
 
   if (entry === 'restaurants') return withHome(<RestaurantSearch
-    profile={{ ...(profile ?? EMPTY_PROFILE), restrictions: [...new Set([...(profile?.restrictions ?? []), ...browseRestrictions])] }}
+    profile={browseProfile ?? profile ?? EMPTY_PROFILE}
     onBack={goHome}
   />)
 
   if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
 
-  if (!signedIn) {
+  if (!signedIn || (entry === 'login' && !user)) {
     return (
       <Login
         onHome={goHome}
@@ -138,7 +147,7 @@ export default function App() {
 
   if (profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
 
-  if (profile === null) {
+  if (profile === null && screen !== 'settings') {
     return <div className="cr">{withHome(<Onboarding user={user} onSave={updateProfile} />)}</div>
   }
 
@@ -150,17 +159,17 @@ export default function App() {
     <div className="app">
       {screen === 'scanner' && (
         <Scanner
-          active={!check && !searchOpen}
-          profile={profile}
+          active={!check && !searchOpen && !menuOpen}
+          profile={profile ?? EMPTY_PROFILE}
           onCapture={(req) => setCheck(req)}
           menu={<Menu open={menuOpen} user={user} demo={demo} onOpenChange={setMenuOpen} onGo={go} />}
           onHome={goHome}
-          onEditRestrictions={() => go('settings')}
+          onEditRestrictions={goHome}
         />
       )}
       {screen === 'nearby' && <Nearby onBack={back} />}
-      {screen === 'restaurants' && <RestaurantSearch profile={profile} onBack={back} />}
-      {screen === 'profile' && <Profile user={user} profile={profile} onBack={back} onEdit={() => setScreen('settings')} />}
+      {screen === 'restaurants' && <RestaurantSearch profile={profile ?? EMPTY_PROFILE} onBack={back} />}
+      
       {screen === 'settings' && <Settings profile={profile ?? EMPTY_PROFILE} onSave={updateProfile} onSignOut={signOut} onBack={back} demo={demo} />}
 
       {searchOpen && (
@@ -175,7 +184,7 @@ export default function App() {
       {check && (
         <CheckFlow
           request={check}
-          profile={profile}
+          profile={profile ?? EMPTY_PROFILE}
           onClose={() => setCheck(null)}
           onSearchInstead={() => {
             setCheck(null)

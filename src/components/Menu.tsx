@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import type { ReactNode } from 'react'
 import { motion } from 'motion/react'
-import { ChevronRight, MapPin, Menu as MenuBars, Settings, Store, UserRound, X } from 'lucide-react'
+import { ChevronRight, MapPin, Menu as MenuBars, Settings, Store, X } from 'lucide-react'
 import type { Screen } from '../App'
 import { Avatar, displayName } from '../screens/Profile'
 import { MorphingPopover, MorphingPopoverClose, MorphingPopoverContent, MorphingPopoverTrigger } from './ui/morphing-popover'
@@ -9,8 +9,7 @@ import { MorphingPopover, MorphingPopoverClose, MorphingPopoverContent, Morphing
 const ITEMS: { screen: Screen; label: string; icon: ReactNode }[] = [
   { screen: 'nearby', label: 'Nearby', icon: <MapPin size={18} /> },
   { screen: 'restaurants', label: 'Restaurant Search', icon: <Store size={18} /> },
-  { screen: 'profile', label: 'Profile', icon: <UserRound size={18} /> },
-  { screen: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+  { screen: 'settings', label: 'My preferences', icon: <Settings size={18} /> },
 ]
 
 interface Props {

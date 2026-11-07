@@ -14,3 +14,9 @@
 .scanner-top .foodex-home-button:hover{background:rgb(255 255 255 / 18%)}
 .scanner-top .foodex-home-button:hover .foodex-home-icon{box-shadow:none}
 .scanner-top .xs-open{margin-right:0}
+
+.scanner-checking{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.scanner-checking>span{min-width:0;overflow-wrap:anywhere}
+.scanner-preferences{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex-shrink:0;min-height:40px;padding:8px 12px;border:1px solid rgb(255 255 255 / 22%);border-radius:999px;background:rgb(20 28 24 / 65%);color:#fff;font:inherit;font-size:11px;backdrop-filter:blur(14px)}
+.scanner-preferences:hover{background:rgb(255 255 255 / 18%)}
+.scanner-preferences:focus-visible{outline:2px solid #fff;outline-offset:3px}
