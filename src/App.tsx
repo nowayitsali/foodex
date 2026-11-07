@@ -125,10 +125,10 @@ export default function App() {
     /></div>
   }
 
-  if (entry === 'restaurants') return withHome(<RestaurantSearch
+  if (entry === 'restaurants') return <div className="cr">{withHome(<RestaurantSearch
     profile={browseProfile ?? profile ?? EMPTY_PROFILE}
     onBack={goHome}
-  />)
+  />)}</div>
 
   if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
 
@@ -153,7 +153,7 @@ export default function App() {
 
   const back = () => setScreen('scanner')
 
-  const cream = screen === 'profile' || screen === 'settings'
+  const cream = screen === 'profile' || screen === 'settings' || screen === 'restaurants'
 
   const page = withHome(
     <div className="app">

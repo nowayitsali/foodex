@@ -105,3 +105,45 @@
   .cr-stat strong { font-size: 24px; }
   .cr-stat span { font-size: 9px; letter-spacing: 0.6px; }
 }
+
+/* ---------- Restaurant Search ---------- */
+.rs-top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.rs-demo { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 5px 10px; border-radius: 20px; background: #f3eedd; color: #9a7330; }
+.rs-intro { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 2px; }
+.rs-checking { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.rs-checking svg { flex: none; margin-top: 3px; color: #5d8a5f; }
+.rs-checking strong { color: var(--text); font-weight: 600; }
+
+.rs-search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; border-radius: 12px; border: 1px solid #d6dbcc; background: var(--surface); color: var(--muted); }
+.rs-search:focus-within { border-color: #7c9868; box-shadow: 0 0 0 3px #e4ebd8; }
+.rs-search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
+
+.rs-list { display: flex; flex-direction: column; gap: 10px; }
+.rs-card { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 14px 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-align: left; font: inherit; cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; }
+.rs-card:hover { border-color: #b9c3a8; box-shadow: 0 8px 22px #203c3214; }
+.rs-initial { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 12px; background: #e4ebd8; color: #264c3b; font-family: Georgia, serif; font-size: 22px; }
+.rs-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rs-card-main strong { font-size: 16px; font-weight: 600; }
+.rs-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.rs-meta-lg { font-size: 13px; }
+.rs-count { flex: none; font-size: 11px; color: #3c6046; background: #e4ebd8; padding: 6px 10px; border-radius: 20px; }
+.rs-count b { font-size: 13px; }
+.rs-count-none { background: #efede3; color: var(--muted); }
+.rs-chev { flex: none; color: #9aa68b; }
+.rs-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 24px 0; }
+
+.rs-group { display: flex; flex-direction: column; gap: 8px; }
+.rs-group-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin: 6px 2px 2px; }
+.rs-group-title > span:last-child { font-size: 11px; font-weight: 600; color: var(--muted); }
+.rs-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.rs-group-title.rs-fits { color: #3f7a4f; }
+.rs-group-title.rs-not_enough_info { color: #9a7330; }
+.rs-group-title.rs-doesnt_fit { color: #a8392b; }
+.rs-dish { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.rs-dish-head { display: flex; justify-content: space-between; gap: 12px; }
+.rs-dish-head strong { font-size: 15px; font-weight: 600; }
+.rs-price { font-size: 14px; font-weight: 600; color: #264c3b; }
+.rs-dish > p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.rs-dish > p.rs-why { margin-top: 4px; font-size: 12px; font-weight: 600; }
+.rs-why.rs-doesnt_fit { color: #a8392b; }
+.rs-why.rs-not_enough_info { color: #9a7330; }
