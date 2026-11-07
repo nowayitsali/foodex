@@ -6,7 +6,7 @@ import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { SearchPopup } from '../components/SearchPopup'
-import { AnimatedGroup, BorderTrail, ShineButton, TextLoop } from '../components/premium'
+import { AnimatedGroup, ShineButton, TextLoop } from '../components/premium'
 import './scanner.css'
 import type { CheckRequest } from './CheckFlow'
 
@@ -172,7 +172,6 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
           >
             <span /><span /><span /><span />
           </motion.div>
-          {live && <BorderTrail size={90} duration={5} />}
           {live && <div className="sx-scanline" />}
           <AnimatePresence>
             {cam.status === 'starting' && (
