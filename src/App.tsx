@@ -146,11 +146,11 @@ export default function App() {
     <div className="app">
       {screen === 'scanner' && (
         <Scanner
-          active={!check && !searchOpen && !menuOpen}
+          active={!check && !searchOpen}
           profile={profile}
           onCapture={(req) => setCheck(req)}
           onSearch={() => setSearchOpen(true)}
-          onMenu={() => setMenuOpen(true)}
+          menu={<Menu open={menuOpen} user={user} demo={demo} onOpenChange={setMenuOpen} onGo={go} />}
         />
       )}
       {screen === 'nearby' && <Nearby onBack={back} />}
@@ -178,7 +178,6 @@ export default function App() {
           }}
         />
       )}
-      <Menu open={menuOpen} user={user} demo={demo} onClose={() => setMenuOpen(false)} onGo={go} />
     </div>
   )
 }

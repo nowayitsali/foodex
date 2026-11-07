@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { RestrictionProfile } from '../domain/types'
-import { CameraIcon, FlipIcon, MenuIcon, SearchIcon } from '../components/icons'
+import { CameraIcon, FlipIcon, SearchIcon } from '../components/icons'
 import { restrictionNames } from '../components/ui'
 import { ExpandingSearch } from '../components/ui/expanding-search'
 import type { CheckRequest } from './CheckFlow'
@@ -23,10 +23,11 @@ interface Props {
   profile: RestrictionProfile
   onCapture: (req: CheckRequest) => void
   onSearch: () => void
-  onMenu: () => void
+  /** The menu button, drawn in the top bar. */
+  menu: ReactNode
 }
 
-export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props) {
+export function Scanner({ active, profile, onCapture, onSearch, menu }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [facing, setFacing] = useState<Facing>('environment')
   const [cam, setCam] = useState<CameraState>({ status: 'starting' })
@@ -118,9 +119,7 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
           onSubmit={(query) => onCapture({ query, hints: hints.trim() })}
         />
         {!searchOpen && <span className="scanner-brand">Foodex</span>}
-        <button className="glass-btn glass-icon" onClick={onMenu} aria-label="Menu">
-          <MenuIcon />
-        </button>
+        {menu}
       </div>
 
       <div className="scanner-checking">

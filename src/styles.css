@@ -345,7 +345,7 @@ input { font: inherit; color: inherit; }
   justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + 12px) 16px 24px;
   background: linear-gradient(to bottom, rgb(0 0 0 / 55%), transparent);
-  z-index: 2;
+  z-index: 4; /* above the rest of the Scanner so the open menu covers it */
 }
 .scanner-brand { font-weight: 800; letter-spacing: -0.02em; font-size: 1.1rem; text-shadow: 0 1px 6px rgb(0 0 0 / 40%); }
 
@@ -462,9 +462,9 @@ input { font: inherit; color: inherit; }
 .camera-problem-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
 .camera-problem .btn-primary { background: #3fbf7f; color: #062214; }
 
-/* ---------- Sheets and drawer ---------- */
+/* ---------- Sheets and menu ---------- */
 
-.sheet-backdrop, .drawer-backdrop {
+.sheet-backdrop {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -500,41 +500,60 @@ input { font: inherit; color: inherit; }
 .search-examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .search-examples .chip { min-height: 32px; font-size: 0.85rem; }
 
-.drawer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(84vw, 340px);
-  background: var(--surface);
-  color: var(--text);
-  padding: calc(env(safe-area-inset-top) + 14px) 12px 16px;
-  box-shadow: -10px 0 40px rgb(0 0 0 / 20%);
-  animation: slide 0.2s ease-out;
+/* Morphing popover (components/ui/morphing-popover.tsx). */
+.mp { position: relative; display: flex; }
+.mp-icon { display: grid; place-items: center; }
+.mp-content { position: absolute; top: 0; right: 0; overflow: hidden; z-index: 10; }
+
+/* Menu: the glass menu button morphs into this panel. */
+.menu-pop { flex: 0 0 44px; height: 44px; }
+.menu-panel {
+  width: min(280px, calc(100vw - 32px));
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(16 22 19 / 94%);
+  color: #fff;
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 45%);
 }
-@keyframes slide { from { transform: translateX(40px); opacity: 0.6; } }
-.drawer-head { display: flex; align-items: center; gap: 12px; padding: 4px 4px 16px; border-bottom: 1px solid var(--border); }
-.drawer-head > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.drawer-head strong, .drawer-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drawer ul { list-style: none; margin: 10px 0 0; padding: 0; }
-.drawer li button {
+.menu-head { display: flex; align-items: center; gap: 10px; padding: 8px 4px 8px 10px; }
+.menu-who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.menu-who strong, .menu-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-who strong { font-size: 0.95rem; }
+.menu-who span { font-size: 0.78rem; color: rgb(255 255 255 / 60%); }
+.menu-close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+.menu-close:hover, .menu-close:active { background: rgb(255 255 255 / 10%); }
+.menu-list { list-style: none; margin: 0; padding: 6px; border-top: 1px solid rgb(255 255 255 / 10%); }
+.menu-item {
   width: 100%;
+  min-height: 48px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 54px;
-  padding: 0 10px;
+  gap: 12px;
+  padding: 0 10px 0 6px;
   border: 0;
   border-radius: 14px;
   background: transparent;
+  color: inherit;
+  font: inherit;
   font-weight: 600;
   text-align: left;
 }
-.drawer li button:hover, .drawer li button:active { background: var(--surface-2); }
-.drawer li button > svg:last-child { color: var(--muted); }
-.drawer-label { flex: 1; }
-.drawer li button .soon { margin-left: 0; }
-.drawer-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: var(--brand-soft); color: var(--brand); }
+.menu-item:hover, .menu-item:active { background: rgb(255 255 255 / 9%); }
+.menu-item-icon { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 11px; background: rgb(63 191 127 / 16%); color: #7fe0ae; }
+.menu-item-label { flex: 1; white-space: nowrap; }
+.menu-item-chev { color: rgb(255 255 255 / 40%); }
+.menu-panel .soon { margin-left: 0; background: rgb(255 255 255 / 12%); color: rgb(255 255 255 / 75%); }
 
 .avatar { border-radius: 50%; object-fit: cover; flex: none; }
 .avatar-initials { display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 700; }
