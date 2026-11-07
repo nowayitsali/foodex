@@ -20,7 +20,8 @@ export interface CheckRequest {
 
 type Step =
   | { kind: 'identifying' }
-  | { kind: 'candidates'; items: Identification[] }
+  /** refining: the confirmed guess we are now matching to an exact product. */
+  | { kind: 'candidates'; items: Identification[]; refining?: Identification }
   | { kind: 'rejected'; empty: boolean }
   | { kind: 'researching'; item: Identification }
   | { kind: 'results'; item: Identification; result: ResearchResult }
@@ -75,6 +76,25 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
 
   function confirm(item: Identification) {
     const id = ++run.current
+    // A guess with no barcode has no ingredient data. Match it to a real
+    // product first (a typed Search, so no Gemini call), then research that.
+    if (!item.code && item.kind !== 'dish' && item.kind !== 'menu') {
+      setStep({ kind: 'identifying' })
+      identify({ query: [item.brand, item.name].filter(Boolean).join(' ') })
+        .then((items) => {
+          if (id !== run.current) return
+          if (items.length) setStep({ kind: 'candidates', items, refining: item })
+          else doResearch(item, id)
+        })
+        .catch(() => {
+          if (id === run.current) doResearch(item, id)
+        })
+      return
+    }
+    doResearch(item, id)
+  }
+
+  function doResearch(item: Identification, id: number) {
     setStep({ kind: 'researching', item })
     research({ item, profile, hints: hints.trim() || undefined })
       .then((result) => {
@@ -118,8 +138,12 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
 
         {step.kind === 'candidates' && (
           <section>
-            <h2 className="section-title">Is this it?</h2>
-            <p className="muted small">Confirm the right item before Foodex researches it.</p>
+            <h2 className="section-title">{step.refining ? 'Which exact product?' : 'Is this it?'}</h2>
+            <p className="muted small">
+              {step.refining
+                ? `Pick the product that matches your ${step.refining.name}, so Foodex can read its ingredients.`
+                : 'Confirm the right item before Foodex researches it.'}
+            </p>
             <div className="candidates">
               {step.items.map((item, i) => (
                 <article key={i} className="card candidate">
@@ -131,15 +155,24 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
                   <h3>{item.name}</h3>
                   {item.brand && <p className="candidate-brand">{item.brand}</p>}
                   {item.description && <p className="muted small">{item.description}</p>}
+                  {!item.code && item.kind !== 'dish' && item.kind !== 'menu' && (
+                    <p className="muted small">Not matched to a product yet. Foodex will look for the exact one next.</p>
+                  )}
                   <button className="btn btn-primary btn-block" onClick={() => confirm(item)}>
                     Yes, that's it
                   </button>
                 </article>
               ))}
             </div>
-            <button className="btn btn-secondary btn-block" onClick={() => setStep({ kind: 'rejected', empty: false })}>
-              None of these
-            </button>
+            {step.refining ? (
+              <button className="btn btn-secondary btn-block" onClick={() => doResearch(step.refining!, ++run.current)}>
+                None of these, check it anyway
+              </button>
+            ) : (
+              <button className="btn btn-secondary btn-block" onClick={() => setStep({ kind: 'rejected', empty: false })}>
+                None of these
+              </button>
+            )}
           </section>
         )}
 
