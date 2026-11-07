@@ -123,8 +123,9 @@ export default function App() {
   if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
 
   if (!signedIn) {
-    return withHome(
+    return (
       <Login
+        onHome={goHome}
         onDemo={() => {
           writeDemoFlag(true)
           setDemo(true)
@@ -151,6 +152,7 @@ export default function App() {
           onCapture={(req) => setCheck(req)}
           menu={<Menu open={menuOpen} user={user} demo={demo} onOpenChange={setMenuOpen} onGo={go} />}
           onHome={goHome}
+          onEditRestrictions={() => go('settings')}
         />
       )}
       {screen === 'nearby' && <Nearby onBack={back} />}

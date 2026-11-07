@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { RestrictionProfile } from '../domain/types'
-import { motion } from 'motion/react'
-import { Camera, SwitchCamera } from 'lucide-react'
-import { CameraIcon, SearchIcon } from '../components/icons'
+import { AnimatePresence, motion } from 'motion/react'
+import { Camera, CameraOff, Plus, RotateCcw, ScanLine, Search, SwitchCamera } from 'lucide-react'
 import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { SearchPopup } from '../components/SearchPopup'
+import { AnimatedGroup, BorderTrail, ShineButton, TextLoop } from '../components/premium'
+import './scanner.css'
 import type { CheckRequest } from './CheckFlow'
 
 type Facing = 'environment' | 'user'
@@ -21,6 +22,8 @@ const POPULAR_SEARCHES = ['Nutella', 'Celsius', "Lay's Classic", 'Oreo', 'Kit Ka
 // Small photos cost fewer Gemini tokens and still read labels fine.
 const CAPTURE_WIDTH = 768
 
+const TIPS = ['Point at a package label, then tap to Scan.', 'Snap a restaurant menu.', 'Or the plate in front of you.']
+
 interface Props {
   /** False while something covers the Scanner, so the camera turns off. */
   active: boolean
@@ -29,9 +32,11 @@ interface Props {
   /** The menu button, drawn in the top bar. */
   menu: ReactNode
   onHome: () => void
+  /** Opens Settings so the Diner can pick restrictions. */
+  onEditRestrictions: () => void
 }
 
-export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
+export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestrictions }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [facing, setFacing] = useState<Facing>('environment')
   const [cam, setCam] = useState<CameraState>({ status: 'starting' })
@@ -41,6 +46,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
   const [hintOpen, setHintOpen] = useState(false)
   const [flipTurns, setFlipTurns] = useState(0)
   const [flash, setFlash] = useState(false)
+  const [shots, setShots] = useState(0)
 
   useEffect(() => {
     if (!active) return
@@ -98,6 +104,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
     canvas.getContext('2d')?.drawImage(video, 0, 0, width, height)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
     setFlash(true)
+    setShots((n) => n + 1)
     setTimeout(() => setFlash(false), 180)
     onCapture({ image: dataUrl.slice(dataUrl.indexOf(',') + 1), preview: dataUrl, hints: hints.trim() })
   }
@@ -106,7 +113,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
   const live = cam.status === 'live'
 
   return (
-    <main className="scanner">
+    <main className={`scanner sx${live ? ' sx-live' : ''}`}>
       <video
         ref={videoRef}
         className={`scanner-video${facing === 'user' ? ' mirrored' : ''}`}
@@ -114,11 +121,16 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
         muted
         autoPlay
       />
-      {flash && <div className="scanner-flash" />}
+      <div className="sx-vignette" aria-hidden />
+      <AnimatePresence>
+        {flash && (
+          <motion.div className="scanner-flash" initial={{ opacity: 0.8 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0, transition: { duration: 0.35 } }} />
+        )}
+      </AnimatePresence>
 
       <div className="scanner-top">
         <HomeButton onHome={onHome} />
-        <span className="scanner-brand">Foodex</span>
+        <span className="sx-wordmark" aria-hidden>foodex<span>.</span></span>
         <SearchPopup
           open={searchOpen}
           onOpenChange={setSearchOpen}
@@ -128,21 +140,48 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
         {menu}
       </div>
 
-      <div className="scanner-checking">
+      <div className="sx-checking">
+        <span className="sx-checking-label">{names.length ? 'Checking for' : 'No restrictions yet'}</span>
         {names.length ? (
-          <>Checking for {names.join(' · ')}</>
+          <AnimatedGroup className="sx-chips" delay={0.15} stagger={0.05}>
+            {names.map((n) => <span key={n} className="sx-chip">{n}</span>)}
+          </AnimatedGroup>
         ) : (
-          <>No restrictions picked yet. Add them in Settings.</>
+          <button type="button" className="sx-chip sx-chip-add" onClick={onEditRestrictions}>
+            <Plus size={13} /> Add your restrictions
+          </button>
         )}
       </div>
 
       {cam.status === 'error' ? (
         <CameraProblem state={cam} onRetry={() => setAttempt((n) => n + 1)} onSearch={() => setSearchOpen(true)} />
       ) : (
-        <div className="viewfinder" aria-hidden>
-          <span /><span /><span /><span />
-          {cam.status === 'starting' && <p>Starting camera…</p>}
-        </div>
+        <motion.div
+          className="viewfinder sx-finder"
+          aria-hidden
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+        >
+          <motion.div
+            key={shots}
+            className="sx-corners"
+            initial={shots ? { scale: 0.92 } : false}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+          >
+            <span /><span /><span /><span />
+          </motion.div>
+          {live && <BorderTrail size={90} duration={5} />}
+          {live && <div className="sx-scanline" />}
+          <AnimatePresence>
+            {cam.status === 'starting' && (
+              <motion.p className="sx-status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <span className="sx-pulse" /> Starting camera…
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       <div className="scanner-bottom">
@@ -156,6 +195,7 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
             whileTap={live ? { scale: 0.9 } : undefined}
             transition={{ type: 'spring', stiffness: 500, damping: 22 }}
           >
+            {live && <span className="sx-shutter-glow" aria-hidden />}
             <span className="shutter-disc">
               <Camera size={26} strokeWidth={1.9} />
             </span>
@@ -179,7 +219,9 @@ export function Scanner({ active, profile, onCapture, menu, onHome }: Props) {
             </motion.span>
           </motion.button>
         </div>
-        <p className="scanner-tip">Point at a package, plate or menu, then tap to Scan.</p>
+        <p className="scanner-tip">
+          {live ? <TextLoop items={TIPS} interval={3600} /> : 'Point at a package, plate or menu, then tap to Scan.'}
+        </p>
       </div>
     </main>
   )
@@ -206,18 +248,28 @@ function CameraProblem({ state, onRetry, onSearch }: { state: Extract<CameraStat
   }[state.kind]
 
   return (
-    <div className="camera-problem" role="alert">
-      <div className="camera-problem-icon"><CameraIcon size={28} /></div>
+    <motion.div
+      className="camera-problem sx-problem"
+      role="alert"
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', bounce: 0.2, duration: 0.55 }}
+    >
+      <div className="sx-problem-icon">
+        {state.kind === 'notfound' ? <CameraOff size={24} /> : <ScanLine size={24} />}
+      </div>
       <h2>{text.title}</h2>
       <p>{text.body}</p>
       <div className="camera-problem-actions">
-        <button className="btn btn-primary" onClick={onSearch}>
-          <SearchIcon size={18} /> Search instead
-        </button>
+        <ShineButton className="sx-btn sx-btn-primary" onClick={onSearch}>
+          <Search size={17} /> Search instead
+        </ShineButton>
         {state.kind !== 'insecure' && (
-          <button className="btn btn-glass" onClick={onRetry}>Try again</button>
+          <button type="button" className="sx-btn sx-btn-ghost" onClick={onRetry}>
+            <RotateCcw size={16} /> Try again
+          </button>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }

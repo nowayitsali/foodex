@@ -1,0 +1,34 @@
+/* Shared animated components (components/premium). */
+
+.pm-loop { display: inline-grid; position: relative; overflow: hidden; vertical-align: bottom; }
+.pm-loop-item { grid-area: 1 / 1; display: inline-block; }
+
+.pm-group-item { min-width: 0; }
+
+.pm-trail { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; overflow: hidden;
+  /* Keep only the border ring visible. */
+  padding: 1.5px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.pm-trail-dot { position: absolute; aspect-ratio: 1; background: radial-gradient(circle, #f3efdc 0%, #b9cf94 35%, transparent 70%); offset-anchor: center; }
+
+.pm-shine { position: relative; overflow: hidden; isolation: isolate; }
+.pm-shine-sweep { position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 45%) 50%, transparent 70%);
+  transform: translateX(-120%); transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.pm-shine:hover:not(:disabled) .pm-shine-sweep { transform: translateX(120%); }
+
+.pm-marquee { display: flex; overflow: hidden; gap: var(--pm-gap, 10px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.pm-marquee-track { display: flex; flex: none; gap: var(--pm-gap, 10px); min-width: max-content; animation: pm-scroll var(--pm-dur, 28s) linear infinite; }
+.pm-reverse { animation-direction: reverse; }
+.pm-marquee:hover .pm-marquee-track { animation-play-state: paused; }
+@keyframes pm-scroll { to { transform: translateX(calc(-100% - var(--pm-gap, 10px))); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-marquee-track { animation: none; }
+  .pm-shine-sweep { display: none; }
+}

@@ -1,0 +1,115 @@
+/* Scanner: the landing page's forest green, cream and sage, on a dark camera view. */
+.sx {
+  --sx-cream: #f3f4e9;
+  --sx-sage: #b9cf94;
+  --sx-forest: #132c21;
+  background: radial-gradient(120% 80% at 50% 40%, #1d3a2c 0%, #0d1f17 60%, #08140e 100%);
+  font-family: Arial, Helvetica, sans-serif;
+}
+.sx .scanner-video { opacity: 0; transition: opacity 0.6s ease; }
+.sx-live .scanner-video { opacity: 1; }
+.sx-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(90% 70% at 50% 46%, transparent 55%, rgb(8 20 14 / 55%) 100%); }
+
+.sx .scanner-top { background: linear-gradient(to bottom, rgb(8 20 14 / 70%), transparent); }
+.sx-wordmark { flex: 1; text-align: center; font-size: 22px; font-weight: 750; letter-spacing: -1px; color: var(--sx-cream); text-shadow: 0 1px 8px rgb(0 0 0 / 35%); }
+.sx-wordmark > span { color: var(--sx-sage); }
+.sx .glass-btn, .sx .scanner-top .foodex-home-button { background: rgb(19 44 33 / 45%); border-color: rgb(243 244 233 / 20%); }
+
+/* Restrictions under the top bar. */
+.sx-checking {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 70px);
+  left: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.sx-checking-label { font-size: 9px; font-weight: 650; letter-spacing: 2px; text-transform: uppercase; color: rgb(243 244 233 / 70%); text-shadow: 0 1px 4px rgb(0 0 0 / 50%); }
+.sx-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 520px; }
+.sx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 30px;
+  color: var(--sx-cream);
+  background: rgb(19 44 33 / 50%);
+  border: 1px solid rgb(185 207 148 / 35%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+.sx-chip-add { font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; border-style: dashed; color: var(--sx-sage); }
+.sx-chip-add:hover { background: rgb(185 207 148 / 14%); }
+
+/* Viewfinder. */
+.sx-finder { --pm-trail-radius: 26px; border-radius: 26px; top: 47%; transform: none; translate: -50% -50%; }
+.sx-corners { position: absolute; inset: 0; }
+.sx-corners span { position: absolute; width: 44px; height: 44px; border: 3px solid var(--sx-cream); opacity: 0.95; filter: drop-shadow(0 1px 6px rgb(0 0 0 / 35%)); }
+.sx-corners span:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 26px; }
+.sx-corners span:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 26px; }
+.sx-corners span:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 26px; }
+.sx-corners span:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 26px; }
+.sx-finder .pm-trail { border-radius: 26px; }
+.sx-scanline {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--sx-sage), transparent);
+  box-shadow: 0 0 18px 4px rgb(185 207 148 / 35%);
+  animation: sx-scan 3.2s ease-in-out infinite;
+}
+@keyframes sx-scan { 0%, 100% { top: 8%; opacity: 0; } 15%, 85% { opacity: 1; } 50% { top: 92%; } }
+.sx-status { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: rgb(243 244 233 / 80%); padding: 8px 14px; border-radius: 30px; background: rgb(19 44 33 / 55%); border: 1px solid rgb(243 244 233 / 14%); }
+.sx-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--sx-sage); animation: sx-pulse 1.2s ease-in-out infinite; }
+@keyframes sx-pulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+
+/* Shutter. */
+.sx .shutter { position: relative; box-shadow: inset 0 0 0 3px var(--sx-cream), 0 8px 28px rgb(0 0 0 / 40%); background: rgb(243 244 233 / 14%); }
+.sx .shutter-disc { background: var(--sx-cream); color: var(--sx-forest); }
+.sx .shutter:active:not(:disabled) .shutter-disc { background: #e4ebd8; }
+.sx-shutter-glow { position: absolute; inset: -6px; border-radius: 50%; border: 1px solid rgb(185 207 148 / 55%); animation: sx-ring 2.4s ease-out infinite; pointer-events: none; }
+@keyframes sx-ring { from { transform: scale(0.92); opacity: 0.9; } to { transform: scale(1.22); opacity: 0; } }
+.sx .scanner-bottom { background: linear-gradient(to top, rgb(8 20 14 / 80%), transparent); }
+.sx .scanner-tip { min-height: 1.4em; color: rgb(243 244 233 / 72%); font-size: 12px; }
+
+/* Hint and search use the same sage accent. */
+.sx .hint-set { border-color: rgb(185 207 148 / 70%); color: var(--sx-sage); }
+.sx .hint-dot { background: var(--sx-sage); }
+.sx .hint-done { background: var(--sx-cream); color: var(--sx-forest); }
+.sx .hint-field:focus-within { border-color: rgb(185 207 148 / 70%); }
+
+/* Camera problem card. */
+.sx-problem {
+  transform: none;
+  translate: 0 -55%;
+  max-width: 380px;
+  padding: 28px 22px 22px;
+  border-radius: 22px;
+  background: rgb(19 44 33 / 60%);
+  border: 1px solid rgb(243 244 233 / 14%);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 35%);
+}
+.sx-problem h2 { font-family: Georgia, serif; font-weight: 400; font-size: 24px; letter-spacing: -0.4px; color: var(--sx-cream); }
+.sx-problem p { color: rgb(243 244 233 / 72%); font-size: 13px; line-height: 1.7; }
+.sx-problem-icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 6px; color: var(--sx-sage); background: rgb(185 207 148 / 12%); box-shadow: 0 0 0 6px rgb(185 207 148 / 6%); }
+.sx-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 18px; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+.sx-btn-primary { background: var(--sx-cream); color: var(--sx-forest); }
+.sx-btn-ghost { background: transparent; color: var(--sx-cream); border-color: rgb(243 244 233 / 25%); }
+.sx-btn-ghost:hover { background: rgb(243 244 233 / 8%); }
+.sx button:focus-visible { outline: 3px solid #7c9868; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-scanline, .sx-shutter-glow, .sx-pulse { animation: none; }
+  .sx-scanline { top: 50%; opacity: 0.6; }
+}
