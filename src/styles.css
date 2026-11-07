@@ -700,7 +700,7 @@ input { font: inherit; color: inherit; }
   font-size: 1rem; /* 16px stops iOS zooming in on focus */
 }
 .ss-input::placeholder { color: var(--muted); }
-.ss-input::-webkit-search-cancel-button { filter: grayscale(1); }
+.ss-input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
 .ss-overlay {
   position: absolute;
   left: 42px;
@@ -730,4 +730,26 @@ input { font: inherit; color: inherit; }
 .ss-glass .ss-suggestion,
 .ss-glass .ss-input::placeholder { color: rgb(255 255 255 / 78%); }
 .ss-glass .ss-cursor { color: rgb(255 255 255 / 78%); }
-.scanner-top .ss-glass { margin-right: 10px; }
+.ss-has-trailing { padding-right: 4px; }
+.ss-has-trailing .ss-overlay { right: 48px; }
+.ss-close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.ss-close:hover, .ss-close:active { background: rgb(255 255 255 / 16%); }
+
+/* Expanding search: round button that opens into the search field. */
+.xs { display: flex; flex: 0 0 44px; min-width: 0; }
+.xs-open { flex: 1 1 auto; margin-right: 10px; }
+.xs-field { min-width: 0; border-radius: 999px; overflow: hidden; }
+.xs-field .ss-wrapper { width: 100%; }
+.scanner-top .scanner-brand { flex: 1; text-align: center; }

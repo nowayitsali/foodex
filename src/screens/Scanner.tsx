@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { RestrictionProfile } from '../domain/types'
 import { CameraIcon, FlipIcon, MenuIcon, SearchIcon } from '../components/icons'
 import { restrictionNames } from '../components/ui'
-import { SuggestiveSearch } from '../components/ui/suggestive-search'
+import { ExpandingSearch } from '../components/ui/expanding-search'
 import type { CheckRequest } from './CheckFlow'
 
 type Facing = 'environment' | 'user'
@@ -32,6 +32,7 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
   const [cam, setCam] = useState<CameraState>({ status: 'starting' })
   const [attempt, setAttempt] = useState(0)
   const [hints, setHints] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [flash, setFlash] = useState(false)
 
   useEffect(() => {
@@ -109,12 +110,14 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
       {flash && <div className="scanner-flash" />}
 
       <div className="scanner-top">
-        <SuggestiveSearch
-          className="ss-glass"
+        <ExpandingSearch
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
           label="Search a food or product"
           suggestions={SEARCH_SUGGESTIONS}
           onSubmit={(query) => onCapture({ query, hints: hints.trim() })}
         />
+        {!searchOpen && <span className="scanner-brand">Foodex</span>}
         <button className="glass-btn glass-icon" onClick={onMenu} aria-label="Menu">
           <MenuIcon />
         </button>
