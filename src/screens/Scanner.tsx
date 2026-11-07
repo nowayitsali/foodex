@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RestrictionProfile } from '../domain/types'
 import { CameraIcon, FlipIcon, MenuIcon, SearchIcon } from '../components/icons'
+import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { ExpandingSearch } from '../components/ui/expanding-search'
 import type { CheckRequest } from './CheckFlow'
@@ -24,9 +25,10 @@ interface Props {
   onCapture: (req: CheckRequest) => void
   onSearch: () => void
   onMenu: () => void
+  onHome: () => void
 }
 
-export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props) {
+export function Scanner({ active, profile, onCapture, onSearch, onMenu, onHome }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [facing, setFacing] = useState<Facing>('environment')
   const [cam, setCam] = useState<CameraState>({ status: 'starting' })
@@ -110,6 +112,8 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
       {flash && <div className="scanner-flash" />}
 
       <div className="scanner-top">
+        <HomeButton onHome={onHome} />
+        {!searchOpen && <span className="scanner-brand">Foodex</span>}
         <ExpandingSearch
           open={searchOpen}
           onOpenChange={setSearchOpen}
@@ -117,7 +121,6 @@ export function Scanner({ active, profile, onCapture, onSearch, onMenu }: Props)
           suggestions={SEARCH_SUGGESTIONS}
           onSubmit={(query) => onCapture({ query, hints: hints.trim() })}
         />
-        {!searchOpen && <span className="scanner-brand">Foodex</span>}
         <button className="glass-btn glass-icon" onClick={onMenu} aria-label="Menu">
           <MenuIcon />
         </button>

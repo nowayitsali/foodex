@@ -103,8 +103,8 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
-  function withHome(content: ReactNode) {
-    return <><header className="foodex-home-header"><HomeButton onHome={goHome} /></header>{content}</>
+  function withHome(content: ReactNode, showHeader = true) {
+    return <>{showHeader && <header className="foodex-home-header"><HomeButton onHome={goHome} /></header>}{content}</>
   }
 
   if (entry === 'landing') return <Landing
@@ -151,6 +151,7 @@ export default function App() {
           onCapture={(req) => setCheck(req)}
           onSearch={() => setSearchOpen(true)}
           onMenu={() => setMenuOpen(true)}
+          onHome={goHome}
         />
       )}
       {screen === 'nearby' && <Nearby onBack={back} />}
@@ -179,6 +180,7 @@ export default function App() {
         />
       )}
       <Menu open={menuOpen} user={user} demo={demo} onClose={() => setMenuOpen(false)} onGo={go} />
-    </div>
+    </div>,
+    screen !== 'scanner',
   )
 }
