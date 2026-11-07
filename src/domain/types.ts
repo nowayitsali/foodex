@@ -74,4 +74,7 @@ export interface Identification {
   brand?: string
   kind: 'packaged_product' | 'dish' | 'ingredient' | 'menu' | 'other'
   description: string
+  /** Open Food Facts barcode, when the item was matched to a product there. */
+  code?: string
+  imageUrl?: string
 }

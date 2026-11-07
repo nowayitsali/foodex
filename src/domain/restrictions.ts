@@ -5,7 +5,7 @@ const PORK = ['pork', 'bacon', 'ham', 'lard', 'prosciutto', 'pancetta', 'chorizo
 const OTHER_MEAT = ['beef', 'chicken', 'turkey', 'lamb', 'mutton', 'veal', 'duck', 'goat', 'venison', 'meat', 'sausage', 'broth', 'stock', 'gelatin', 'gelatine', 'rennet']
 const MEAT = [...PORK, ...OTHER_MEAT]
 const FISH = ['fish', 'salmon', 'tuna', 'cod', 'anchovy', 'anchovies', 'sardine', 'tilapia', 'trout', 'haddock', 'mackerel', 'halibut', 'pollock']
-const SHELLFISH = ['shellfish', 'shrimp', 'prawn', 'crab', 'lobster', 'clam', 'mussel', 'oyster', 'scallop', 'squid', 'calamari', 'octopus', 'crayfish', 'krill']
+const SHELLFISH = ['shellfish', 'crustacean', 'mollusc', 'mollusk', 'shrimp', 'prawn', 'crab', 'lobster', 'clam', 'mussel', 'oyster', 'scallop', 'squid', 'calamari', 'octopus', 'crayfish', 'krill']
 const DAIRY = ['milk', 'butter', 'cream', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'whey', 'casein', 'caseinate', 'lactose', 'yogurt', 'yoghurt', 'ghee', 'curd', 'buttermilk', 'paneer']
 const DAIRY_LOOKALIKES = [
   'coconut milk', 'almond milk', 'oat milk', 'soy milk', 'rice milk', 'cashew milk', 'coconut cream',

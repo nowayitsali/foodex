@@ -571,6 +571,7 @@ input { font: inherit; color: inherit; }
 .candidate { display: flex; flex-direction: column; gap: 6px; }
 .candidate h3 { font-size: 1.15rem; }
 .candidate .btn { margin-top: 8px; }
+.candidate-image { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; }
 .candidate-head { display: flex; gap: 6px; }
 .candidate-brand { font-weight: 600; color: var(--muted); }
 .kind-tag { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }

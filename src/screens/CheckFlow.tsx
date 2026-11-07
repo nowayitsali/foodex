@@ -127,6 +127,7 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
                     <span className="kind-tag">{KIND_LABELS[item.kind] ?? 'Food'}</span>
                     {i === 0 && step.items.length > 1 && <span className="kind-tag kind-tag-best">Best guess</span>}
                   </div>
+                  {item.imageUrl && <img className="candidate-image" src={item.imageUrl} alt="" loading="lazy" />}
                   <h3>{item.name}</h3>
                   {item.brand && <p className="candidate-brand">{item.brand}</p>}
                   {item.description && <p className="muted small">{item.description}</p>}
@@ -165,7 +166,7 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
         )}
 
         {step.kind === 'researching' && (
-          <Spinner label={`Researching ${step.item.name}: ingredients, allergens and certifications…`} />
+          <Spinner label={`Looking up ${step.item.name}: ingredients, allergens and labels…`} />
         )}
 
         {step.kind === 'error' && <ErrorCard message={step.message} onRetry={step.retry} />}
@@ -270,7 +271,7 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
       )}
 
       <section className="card">
-        <h2>Sources searched</h2>
+        <h2>Source</h2>
         {searched.length ? (
           <ul className="searched">
             {searched.map((s) => (
@@ -282,8 +283,17 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
             ))}
           </ul>
         ) : (
-          <p className="muted small">No search results were reported for this item.</p>
+          <p className="muted small">
+            {item.code
+              ? "This product's page on Open Food Facts has no ingredient data yet."
+              : "This item isn't matched to a product in Open Food Facts, so there's no ingredient list to check. Try Search by name to find the exact product."}
+          </p>
         )}
+        <p className="muted small">
+          Ingredient data from{' '}
+          <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>, a community database
+          (ODbL). It can be incomplete or out of date.
+        </p>
       </section>
 
       <div className="results-actions">

@@ -10,7 +10,8 @@ type CameraState =
   | { status: 'live' }
   | { status: 'error'; kind: 'denied' | 'insecure' | 'notfound' | 'other'; message?: string }
 
-const CAPTURE_WIDTH = 1024
+// Small photos cost fewer Gemini tokens and still read labels fine.
+const CAPTURE_WIDTH = 768
 
 interface Props {
   /** False while something covers the Scanner, so the camera turns off. */
