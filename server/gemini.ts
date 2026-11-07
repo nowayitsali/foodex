@@ -1,6 +1,6 @@
 import { GoogleGenAI, type Part } from '@google/genai'
 import type { Identification } from '../src/domain/types'
-import { parseIdentifications } from './parse'
+import { parseIdentifications } from './parse.js'
 
 // Gemini is used for one thing only: reading a photo. Ingredient research comes
 // from Open Food Facts, because free Gemini keys get no Google Search.
