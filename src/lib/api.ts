@@ -16,7 +16,11 @@ export async function identify(input: { image?: string; query?: string; code?: s
   return identifications
 }
 
-export type ResearchResult = Research & { searched: { title: string; url: string }[] }
+export type ResearchResult = Research & {
+  searched: { title: string; url: string }[]
+  /** Whether HMA's halal list was checked (only when the Diner keeps halal), and what came of it. */
+  hma?: 'matched' | 'no_match' | 'unavailable'
+}
 
 export function research(input: { item: Identification; profile: RestrictionProfile; hints?: string }) {
   return post<ResearchResult>('/api/research', input)

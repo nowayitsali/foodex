@@ -1,6 +1,7 @@
-import type { Identification } from '../src/domain/types'
+import type { Finding, Identification } from '../src/domain/types'
 import { identifyPhoto, MissingKeyError } from './gemini.js'
 import { getProduct, productToIdentification, productToResearch, searchProducts } from './openfoodfacts.js'
+import { lookupHma } from './hma.js'
 
 // The API routes, shared by the Vite dev server (api-plugin.ts) and the Vercel functions (api/).
 
@@ -23,13 +24,34 @@ async function identify(b: { image?: string; query?: string; code?: string; hint
   return searchProducts(query)
 }
 
-async function research(b: { item?: Identification }) {
-  const code = b.item?.code
-  const product = code ? await getProduct(code) : null
-  if (!product) return { findings: [], ingredientsComplete: false, searched: [] }
-  const result = productToResearch(product)
-  const page = result.findings[0]?.source ?? { title: `Open Food Facts: ${product.product_name ?? code}`, url: `https://world.openfoodfacts.org/product/${code}` }
-  return { ...result, searched: [{ title: page.title, url: page.url }] }
+/** True when the Diner keeps halal, so HMA's list is worth checking. */
+function wantsHalal(profile: unknown): boolean {
+  const p = profile as { restrictions?: unknown; custom?: { text?: unknown }[] } | undefined
+  const ids = Array.isArray(p?.restrictions) ? p.restrictions : []
+  const custom = Array.isArray(p?.custom) ? p.custom : []
+  return ids.includes('halal') || custom.some((c) => /halal|zabiha/i.test(String(c?.text ?? '')))
+}
+
+async function research(b: { item?: Identification; profile?: unknown }) {
+  const item = b.item
+  const code = item?.code
+  // Open Food Facts and HMA are looked up at the same time.
+  const [product, hma] = await Promise.all([
+    code ? getProduct(code) : Promise.resolve(null),
+    item?.name && wantsHalal(b.profile) ? lookupHma(item.name, item.brand) : Promise.resolve(undefined),
+  ])
+  const searched: { title: string; url: string }[] = []
+  let result: { findings: Finding[]; ingredientsComplete: boolean } = { findings: [], ingredientsComplete: false }
+  if (product) {
+    result = productToResearch(product)
+    const page = result.findings[0]?.source ?? { title: `Open Food Facts: ${product.product_name ?? code}`, url: `https://world.openfoodfacts.org/product/${code}` }
+    searched.push({ title: page.title, url: page.url })
+  }
+  if (hma?.status === 'matched') {
+    result = { ...result, findings: [...result.findings, hma.finding] }
+    searched.push({ title: hma.finding.source.title, url: hma.finding.source.url })
+  }
+  return { ...result, searched, ...(hma ? { hma: hma.status } : {}) }
 }
 
 export const routes: Record<string, (body: any) => Promise<unknown>> = {

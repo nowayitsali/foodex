@@ -45,9 +45,16 @@ function judgeRule(rule: RestrictionRule, research: Research): Verdict {
     }
   }
 
-  const certs = rule.certification
-    ? findings.filter((f) => f.type === 'certification' && firstMatch(f.text, [rule.certification!]) && !/\bnot\b/i.test(f.text))
+  const about = rule.certification
+    ? findings.filter((f) => f.type === 'certification' && firstMatch(f.text, [rule.certification!]))
     : []
+  const certs = about.filter((f) => !/\bnot\b/i.test(f.text))
+  // A certifier saying "not approved" isn't proof of a conflict (it can mean the maker never
+  // answered), but it rules out Fits. It also outweighs a label saying the opposite.
+  const refusals = about.filter((f) => /\bnot\b/i.test(f.text))
+  if (refusals.length) {
+    return { ...base, value: 'not_enough_info', reason: `${capitalize(refusals[0].text.replace(/\.$/, ''))}.`, evidence: [...refusals, ...certs] }
+  }
 
   if (rule.needsCertification) {
     const needing = hits(findings, rule.needsCertification, rule.lookalikes)
@@ -63,7 +70,8 @@ function judgeRule(rule: RestrictionRule, research: Research): Verdict {
 
   const ingredients = findings.filter(isContent)
   if (certs.length) {
-    return { ...base, value: 'fits', reason: `Certified ${rule.certification} and no conflicting ingredients found.`, evidence: [...certs, ...ingredients] }
+    const proof = certs[0].source.kind === 'official_certification' ? certs[0].text : `${certs[0].text} on the package`
+    return { ...base, value: 'fits', reason: `${capitalize(proof)}, and no conflicting ingredients found.`, evidence: [...certs, ...ingredients] }
   }
   if (!ingredientsComplete || ingredients.length === 0) {
     return { ...base, value: 'not_enough_info', reason: 'No complete ingredient list was found.', evidence: ingredients }

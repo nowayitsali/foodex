@@ -9,9 +9,9 @@
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { Check, ListChecks, ScanBarcode, ShieldAlert, BadgeCheck, Wheat, Search, Images } from 'lucide-react'
+import { Check, ListChecks, ScanBarcode, ShieldAlert, BadgeCheck, Wheat, Search, Images, MoonStar } from 'lucide-react'
 
-export type SourceId = 'gemini' | 'off' | 'foodex'
+export type SourceId = 'gemini' | 'off' | 'hma' | 'foodex'
 
 export interface SweepStep {
   source: SourceId
@@ -24,6 +24,7 @@ const OFF_LOGO = 'https://static.openfoodfacts.org/images/logos/off-logo-icon-li
 export const SOURCES: Record<SourceId, { name: string; role: string }> = {
   gemini: { name: 'Gemini', role: 'Reads the photo' },
   off: { name: 'Open Food Facts', role: 'Ingredients database' },
+  hma: { name: 'HMA Halal Check', role: 'Canadian halal list' },
   foodex: { name: 'Foodex rules', role: 'On this device' },
 }
 
@@ -61,9 +62,24 @@ function FoodexMark({ size = 24 }: { size?: number }) {
   )
 }
 
+/** HMA's own logo isn't used; a crescent mark in its green stands in. */
+function HmaMark({ size = 24 }: { size?: number }) {
+  return (
+    <span className="sw-hma" style={{ width: size, height: size }}>
+      <MoonStar size={Math.round(size * 0.68)} strokeWidth={2.2} />
+    </span>
+  )
+}
+
+/** Which source a link belongs to, for its logo. */
+export function sourceIdFor(url: string): SourceId {
+  return /hmacanada\.org/.test(url) ? 'hma' : 'off'
+}
+
 export function SourceLogo({ id, size }: { id: SourceId; size?: number }) {
   if (id === 'gemini') return <GeminiMark size={size} />
   if (id === 'off') return <OffMark size={size} />
+  if (id === 'hma') return <HmaMark size={size} />
   return <FoodexMark size={size} />
 }
 
@@ -96,8 +112,9 @@ export function identifySteps(r: { image?: boolean; code?: string; query?: strin
 }
 
 /** Steps for reading one confirmed item and checking it. */
-export function researchSteps(restrictions: number): SweepStep[] {
+export function researchSteps(restrictions: number, halal = false): SweepStep[] {
   return [
+    ...(halal ? [{ source: 'hma' as const, label: "Checking HMA's halal list", icon: <MoonStar size={ICON} /> }] : []),
     { source: 'off', label: 'Opening the product page', icon: <Images size={ICON} /> },
     { source: 'off', label: 'Reading the ingredient list', icon: <Wheat size={ICON} /> },
     { source: 'off', label: 'Checking allergens and traces', icon: <ShieldAlert size={ICON} /> },

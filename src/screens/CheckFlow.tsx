@@ -6,7 +6,7 @@ import { judge, overall } from '../domain/verdicts'
 import { identify, research, type ResearchResult } from '../lib/api'
 import { AlertIcon, InfoIcon, LinkIcon } from '../components/icons'
 import { FINDING_TYPE_LABELS, SOURCE_KIND_LABELS, VERDICT_LABELS } from '../components/ui'
-import { identifySteps, researchSteps, SourceLogo, SourceSweep, type SourceId } from '../components/SourceSweep'
+import { identifySteps, researchSteps, SourceLogo, sourceIdFor, SourceSweep, type SourceId } from '../components/SourceSweep'
 import { ThinkingTrace, type TraceEntry } from '../components/ThinkingTrace'
 import './checkflow.css'
 
@@ -196,6 +196,7 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
 
   const title = step.kind === 'results' ? 'Results' : step.kind === 'researching' ? 'Researching' : 'Identification'
   const restrictionCount = profile.restrictions.length + profile.custom.length
+  const keepsHalal = profile.restrictions.includes('halal') || profile.custom.some((c) => /halal|zabiha/i.test(c.text))
 
   // Sweep steps are memoised, so the timer restarts only when the stage changes.
   const sweep = useMemo(() => {
@@ -208,10 +209,14 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
       return { title: request.code ? 'Looking up the barcode' : request.image ? 'Working out what this is' : 'Searching for matches', steps, sources }
     }
     if (step.kind === 'researching') {
-      return { title: `Checking ${step.item.name}`, steps: researchSteps(restrictionCount), sources: ['off', 'foodex'] as SourceId[] }
+      return {
+        title: `Checking ${step.item.name}`,
+        steps: researchSteps(restrictionCount, keepsHalal),
+        sources: (keepsHalal ? ['off', 'hma', 'foodex'] : ['off', 'foodex']) as SourceId[],
+      }
     }
     return null
-  }, [step, request.image, request.code, request.query, restrictionCount])
+  }, [step, request.image, request.code, request.query, restrictionCount, keepsHalal])
 
   // One key per screen, so AnimatePresence plays the hand-off between them.
   const stepKey = step.kind === 'candidates' ? `candidates-${step.refining ? 'r' : 'g'}` : step.kind === 'identifying' && step.matching ? 'matching' : step.kind
@@ -446,7 +451,11 @@ interface ResultsProps {
 function groupFindings(findings: Finding[]) {
   const strip = (text: string, prefix: RegExp) => text.replace(prefix, '').trim()
   const uniq = (list: string[]) => [...new Set(list)]
+  const isHma = (f: Finding) => sourceIdFor(f.source.url) === 'hma'
+  const fromHma = findings.filter(isHma)
+  findings = findings.filter((f) => !isHma(f))
   return {
+    hma: fromHma,
     ingredients: uniq(findings.filter((f) => f.type === 'ingredient' && !/^contains /i.test(f.text)).map((f) => f.text)),
     allergens: uniq(findings.filter((f) => f.type === 'ingredient' && /^contains /i.test(f.text)).map((f) => strip(f.text, /^contains /i))),
     traces: uniq(findings.filter((f) => f.type === 'may_contain').map((f) => strip(f.text, /^may contain /i))),
@@ -457,11 +466,18 @@ function groupFindings(findings: Finding[]) {
 /** What research read, as thinking steps. Built from the data that came back. */
 function researchTrace(item: Identification, result: ResearchResult, verdicts: Verdict[], at: number): TraceEntry[] {
   const out: TraceEntry[] = []
-  const page = result.searched[0]
+  const page = result.searched.find((s) => sourceIdFor(s.url) === 'off')
+  const g = groupFindings(result.findings)
+  if (result.hma === 'matched' && g.hma[0]) {
+    out.push({ by: 'hma', at, text: g.hma[0].text, detail: g.hma[0].source.title.replace(/^HMA Halal Check: /, ''), href: g.hma[0].source.url })
+  } else if (result.hma === 'no_match') {
+    out.push({ by: 'hma', at, text: "Not on HMA's halal list", detail: 'Matched by brand and name; no listing close enough' })
+  } else if (result.hma === 'unavailable') {
+    out.push({ by: 'hma', at, text: "HMA's halal list didn't load in time" })
+  }
   if (!page) {
     out.push({ by: 'foodex', at, text: item.code ? "Open Food Facts has no data for this product" : 'No barcode, so no ingredient list to read' })
   } else {
-    const g = groupFindings(result.findings)
     out.push({ by: 'off', at, text: 'Opened the product page', href: page.url, detail: page.title.replace(/^Open Food Facts: /, '') })
     const shown = g.ingredients.slice(0, 8).join(', ')
     out.push(
@@ -549,7 +565,7 @@ function Results({ item, result, trace, doneAt, profile, onWrongItem, onDone }: 
         )}
       </motion.div>
 
-      {result.findings.length === 0 && (
+      {!result.findings.some((f) => f.type === 'ingredient' || f.type === 'may_contain') && (
         <motion.div className="note note-warn" variants={rise}>
           <InfoIcon size={18} />
           <div>
@@ -585,7 +601,7 @@ function Results({ item, result, trace, doneAt, profile, onWrongItem, onDone }: 
               <li key={s.url}>
                 <a href={s.url} target="_blank" rel="noopener noreferrer">
                   <span className="cf-searched-logo">
-                    <SourceLogo id="off" size={22} />
+                    <SourceLogo id={sourceIdFor(s.url)} size={22} />
                   </span>
                   <span>{s.title}</span>
                   <LinkIcon />
@@ -634,7 +650,8 @@ function AllFindings({ result, verdicts }: { result: ResearchResult; verdicts: V
     { title: 'May contain', items: g.traces },
     { title: 'Labels', items: g.labels },
   ].filter((x) => x.items.length)
-  const page = result.searched[0]
+  const page = result.searched.find((s) => sourceIdFor(s.url) === 'off')
+  const hma = g.hma[0]
 
   return (
     <motion.section className="card cf-label" variants={rise}>
@@ -658,6 +675,24 @@ function AllFindings({ result, verdicts }: { result: ResearchResult; verdicts: V
           </p>
         </div>
       ))}
+      {hma && (
+        <div className="cf-label-group">
+          <h3>Halal check</h3>
+          <a
+            className={`cf-hma${/\bnot\b/i.test(hma.text) ? ' cf-hma-no' : hma.type === 'certification' ? ' cf-hma-yes' : ''}`}
+            href={hma.source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <SourceLogo id="hma" size={22} />
+            <span className="cf-hma-body">
+              <strong>{hma.text}</strong>
+              <span>{hma.source.title.replace(/^HMA Halal Check: /, '')}</span>
+            </span>
+            <LinkIcon size={12} />
+          </a>
+        </div>
+      )}
       {page && (
         <a className="cf-label-src" href={page.url} target="_blank" rel="noopener noreferrer">
           <SourceLogo id="off" size={14} /> Open Food Facts · community-reported <LinkIcon size={12} />
@@ -677,7 +712,13 @@ function VerdictCard({ verdict }: { verdict: Verdict }) {
   const sources = dedupe(evidence.map((f) => f.source), (src) => src.url)
   // Chips are tinted by what they mean for this verdict.
   const tone = (f: Finding) =>
-    verdict.value === 'doesnt_fit' ? ' cf-chip-bad' : f.type === 'may_contain' ? ' cf-chip-warn' : f.type === 'certification' ? ' cf-chip-good' : ''
+    verdict.value === 'doesnt_fit'
+      ? ' cf-chip-bad'
+      : f.type === 'may_contain' || /\bnot\b/i.test(f.text)
+        ? ' cf-chip-warn'
+        : f.type === 'certification'
+          ? ' cf-chip-good'
+          : ''
   return (
     <motion.article className={`card verdict-card verdict-card-${verdict.value}`} variants={rise} layout="position">
       <div className="verdict-card-head">
@@ -710,7 +751,7 @@ function VerdictCard({ verdict }: { verdict: Verdict }) {
           </p>
           {sources.map((src) => (
             <a key={src.url} className="cf-label-src cf-evidence-src" href={src.url} target="_blank" rel="noopener noreferrer">
-              <SourceLogo id="off" size={14} /> {src.title || hostOf(src.url)} · {SOURCE_KIND_LABELS[src.kind].toLowerCase()} <LinkIcon size={12} />
+              <SourceLogo id={sourceIdFor(src.url)} size={14} /> {src.title || hostOf(src.url)} · {SOURCE_KIND_LABELS[src.kind].toLowerCase()} <LinkIcon size={12} />
             </a>
           ))}
         </>

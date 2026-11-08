@@ -1,0 +1,5 @@
+# HMA's Halal Check list as a halal Source
+
+For Diners who keep halal, Foodex also looks the product up in HMA's (Halal Monitoring Authority, Canada) public Halal Check list of about 17,000 Canadian products. HMA has no API, so the server downloads the list its own web page uses, once a day, and matches by brand and product name, since the list has no barcodes. Matching is strict: every distinctive word of the product name must be in HMA's row, spin-offs (the dip, the cereal) don't match the base product, and rows that disagree give no match.
+
+HMA's ruling becomes a Finding quoted as HMA's, and the rules still decide (ADR 0001). "HMA Certified" and "Approved" count as halal proof, unless an ingredient conflicts. "Not Approved" keeps halal at Not enough info with HMA's reason, never Doesn't fit: HMA also refuses products when the maker doesn't reply. "Undetermined" changes nothing. HMA's standard is one authority's view (lacto-ovo vegetarian, or certified by an agency it recognises), so Results always name HMA and the date checked. Before a public launch, ask HMA for permission to use the list this way.
