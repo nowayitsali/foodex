@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react'
-import { ArrowRight, Check, ChevronDown, CircleHelp, RotateCcw, ScanLine, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, CircleHelp, RotateCcw, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import type { Finding, Identification, RestrictionProfile, Verdict } from '../domain/types'
 import { judge, overall } from '../domain/verdicts'
 import { identify, research, type ResearchResult } from '../lib/api'
 import { AlertIcon, InfoIcon, LinkIcon } from '../components/icons'
-import { FINDING_TYPE_LABELS, SourceKindBadge, VERDICT_LABELS } from '../components/ui'
+import { FINDING_TYPE_LABELS, SOURCE_KIND_LABELS, VERDICT_LABELS } from '../components/ui'
 import { identifySteps, researchSteps, SourceLogo, SourceSweep, type SourceId } from '../components/SourceSweep'
+import { ThinkingTrace, type TraceEntry } from '../components/ThinkingTrace'
 import './checkflow.css'
 
 // Scan or Search -> Identification -> Confirmed item -> research -> Verdicts.
@@ -31,7 +32,8 @@ type Step =
   | { kind: 'candidates'; items: Identification[]; refining?: Identification }
   | { kind: 'rejected'; empty: boolean }
   | { kind: 'researching'; item: Identification }
-  | { kind: 'results'; item: Identification; result: ResearchResult }
+  /** trace: what was looked up before research; doneAt: ms from the start to the answer. */
+  | { kind: 'results'; item: Identification; result: ResearchResult; trace: TraceEntry[]; doneAt: number }
   | { kind: 'error'; message: string; retry: () => void }
 
 const KIND_LABELS: Record<Identification['kind'], string> = {
@@ -84,6 +86,19 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
   // Each call gets a number, so a late answer from an old call is ignored.
   const run = useRef(0)
   const pageRef = useRef<HTMLDivElement>(null)
+  // A record of what was actually looked up, for the thinking panel on Results.
+  const trace = useRef<TraceEntry[]>([])
+  // Time spent waiting on lookups only, so time spent choosing an option isn't counted.
+  const busy = useRef(0)
+  const requestAt = useRef(0)
+  const begin = () => {
+    requestAt.current = performance.now()
+  }
+  const end = () => {
+    busy.current += performance.now() - requestAt.current
+  }
+  const elapsed = () => Math.round(busy.current)
+  const log = (e: Omit<TraceEntry, 'at'>) => trace.current.push({ ...e, at: elapsed() })
 
   // Each step replaces the content, so start it at the top. Otherwise picking an item
   // low in a long list leaves the next step out of view, and it looks like nothing happened.
@@ -93,10 +108,15 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
 
   function runIdentify(h: string) {
     const id = ++run.current
+    trace.current = []
+    busy.current = 0
     setStep({ kind: 'identifying' })
+    begin()
     identify({ image: request.image, query: request.query, code: request.code, hints: h.trim() || undefined })
       .then((items) => {
         if (id !== run.current) return
+        end()
+        logIdentified(items, h.trim())
         // A scanned code names one exact product, so there is nothing to confirm.
         if (request.code && items.length === 1) doResearch(items[0], id)
         else setStep(items.length ? { kind: 'candidates', items } : { kind: 'rejected', empty: true })
@@ -106,16 +126,42 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
       })
   }
 
+  function logIdentified(items: Identification[], h: string) {
+    const names = (list: Identification[]) => list.slice(0, 3).map((i) => (i.brand ? `${i.name} (${i.brand})` : i.name)).join(', ')
+    if (request.code) {
+      if (items.length) log({ by: 'off', text: `Found barcode ${request.code}`, detail: names(items) })
+      else log({ by: 'off', text: `Barcode ${request.code} isn't in Open Food Facts` })
+      return
+    }
+    if (request.image) {
+      const guesses = items.filter((i) => !i.code)
+      const matches = items.filter((i) => i.code)
+      log({ by: 'gemini', text: 'Read your photo', detail: guesses.length ? `Saw ${names(guesses)}` : 'No food recognised' })
+      if (matches.length) log({ by: 'off', text: `Matched ${matches.length} ${matches.length === 1 ? 'product' : 'products'}`, detail: names(matches) })
+      return
+    }
+    const q = [request.query, h].filter(Boolean).join(' ')
+    log({
+      by: 'off',
+      text: `Searched for “${q}”`,
+      detail: items.length ? `${items.length} ${items.length === 1 ? 'match' : 'matches'}, ones with a full English ingredient list first` : 'No matches',
+    })
+  }
+
   function confirm(item: Identification) {
+    log({ by: 'you', text: `Picked ${item.brand ? `${item.name} (${item.brand})` : item.name}` })
     const id = ++run.current
     // A guess with no barcode has no ingredient data. Match it to a real
     // product first (a typed Search, so no Gemini call), then research that.
     if (!item.code && item.kind !== 'dish' && item.kind !== 'menu') {
       const query = [item.brand, item.name].filter(Boolean).join(' ')
       setStep({ kind: 'identifying', matching: query })
+      begin()
       identify({ query })
         .then((items) => {
           if (id !== run.current) return
+          end()
+          log({ by: 'off', text: `Searched for “${query}”`, detail: items.length ? `${items.length} exact ${items.length === 1 ? 'product' : 'products'} to pick from` : 'No exact product found' })
           if (items.length) setStep({ kind: 'candidates', items, refining: item })
           else doResearch(item, id)
         })
@@ -129,9 +175,12 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
 
   function doResearch(item: Identification, id: number) {
     setStep({ kind: 'researching', item })
+    begin()
     research({ item, profile, hints: hints.trim() || undefined })
       .then((result) => {
-        if (id === run.current) setStep({ kind: 'results', item, result })
+        if (id !== run.current) return
+        end()
+        setStep({ kind: 'results', item, result, trace: [...trace.current], doneAt: elapsed() })
       })
       .catch((e) => {
         if (id === run.current) setStep({ kind: 'error', message: errorMessage(e), retry: () => confirm(item) })
@@ -229,7 +278,11 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
                 items={step.items}
                 refining={step.refining}
                 onPick={confirm}
-                onNone={() => (step.refining ? doResearch(step.refining, ++run.current) : setStep({ kind: 'rejected', empty: false }))}
+                onNone={() => {
+                  if (!step.refining) return setStep({ kind: 'rejected', empty: false })
+                  log({ by: 'you', text: `Checked ${step.refining.name} without an exact product` })
+                  doResearch(step.refining, ++run.current)
+                }}
               />
             )}
 
@@ -274,7 +327,7 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
             {step.kind === 'error' && <ErrorCard message={step.message} onRetry={step.retry} />}
 
             {step.kind === 'results' && (
-              <Results item={step.item} result={step.result} profile={profile} onWrongItem={() => runIdentify(hints)} onDone={onClose} />
+              <Results item={step.item} result={step.result} trace={step.trace} doneAt={step.doneAt} profile={profile} onWrongItem={() => runIdentify(hints)} onDone={onClose} />
             )}
           </motion.div>
         </AnimatePresence>
@@ -382,12 +435,67 @@ const SEVERITY: Record<Verdict['value'], number> = { doesnt_fit: 0, not_enough_i
 interface ResultsProps {
   item: Identification
   result: ResearchResult
+  trace: TraceEntry[]
+  doneAt: number
   profile: RestrictionProfile
   onWrongItem: () => void
   onDone: () => void
 }
 
-function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
+/** Findings sorted into the groups people read on a label. */
+function groupFindings(findings: Finding[]) {
+  const strip = (text: string, prefix: RegExp) => text.replace(prefix, '').trim()
+  const uniq = (list: string[]) => [...new Set(list)]
+  return {
+    ingredients: uniq(findings.filter((f) => f.type === 'ingredient' && !/^contains /i.test(f.text)).map((f) => f.text)),
+    allergens: uniq(findings.filter((f) => f.type === 'ingredient' && /^contains /i.test(f.text)).map((f) => strip(f.text, /^contains /i))),
+    traces: uniq(findings.filter((f) => f.type === 'may_contain').map((f) => strip(f.text, /^may contain /i))),
+    labels: uniq(findings.filter((f) => f.type === 'certification' || f.type === 'claim').map((f) => strip(f.text, / label$/i))),
+  }
+}
+
+/** What research read, as thinking steps. Built from the data that came back. */
+function researchTrace(item: Identification, result: ResearchResult, verdicts: Verdict[], at: number): TraceEntry[] {
+  const out: TraceEntry[] = []
+  const page = result.searched[0]
+  if (!page) {
+    out.push({ by: 'foodex', at, text: item.code ? "Open Food Facts has no data for this product" : 'No barcode, so no ingredient list to read' })
+  } else {
+    const g = groupFindings(result.findings)
+    out.push({ by: 'off', at, text: 'Opened the product page', href: page.url, detail: page.title.replace(/^Open Food Facts: /, '') })
+    const shown = g.ingredients.slice(0, 8).join(', ')
+    out.push(
+      g.ingredients.length
+        ? {
+            by: 'off',
+            at,
+            text: `Read ${g.ingredients.length} ${g.ingredients.length === 1 ? 'ingredient' : 'ingredients'}${result.ingredientsComplete ? '' : ' (list may be incomplete)'}`,
+            detail: g.ingredients.length > 8 ? `${shown} and ${g.ingredients.length - 8} more` : shown,
+          }
+        : { by: 'off', at, text: 'No English ingredient list on the page' },
+    )
+    out.push({ by: 'off', at, text: g.allergens.length ? `Allergens listed: ${g.allergens.join(', ')}` : 'No allergens listed' })
+    if (g.traces.length) out.push({ by: 'off', at, text: `May contain: ${g.traces.join(', ')}` })
+    if (g.labels.length) out.push({ by: 'off', at, text: `Labels: ${g.labels.join(', ')}` })
+  }
+  if (verdicts.length) {
+    const n = (v: Verdict['value']) => verdicts.filter((x) => x.value === v).length
+    const parts = [
+      n('doesnt_fit') && `${n('doesnt_fit')} doesn't fit`,
+      n('not_enough_info') && `${n('not_enough_info')} not enough info`,
+      n('fits') && `${n('fits')} ${n('fits') === 1 ? 'fits' : 'fit'}`,
+    ].filter(Boolean)
+    out.push({
+      by: 'foodex',
+      at,
+      text: `Checked ${verdicts.length} ${verdicts.length === 1 ? 'restriction' : 'restrictions'} on this device`,
+      detail: parts.join(' · '),
+    })
+  }
+  return out
+}
+
+function Results({ item, result, trace, doneAt, profile, onWrongItem, onDone }: ResultsProps) {
   const rise = useRise()
   // Recomputed when the profile changes, so edits apply right away.
   const verdicts = useMemo(
@@ -398,9 +506,14 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
   const count = (v: Verdict['value']) => verdicts.filter((x) => x.value === v).length
   const searched = dedupe(result.searched, (s) => s.url)
   const tone = verdicts.length ? answer : 'none'
+  const thinking = useMemo(() => [...trace, ...researchTrace(item, result, verdicts, doneAt)], [trace, item, result, verdicts, doneAt])
 
   return (
     <motion.section className="results cf-results" variants={list} initial="hidden" animate="show">
+      <motion.div variants={rise}>
+        <ThinkingTrace entries={thinking} />
+      </motion.div>
+
       <motion.div className={`cf-hero cf-hero-${tone}`} variants={rise}>
         <div className="cf-hero-top">
           {item.imageUrl && <img className="cf-hero-img" src={item.imageUrl} alt="" />}
@@ -462,7 +575,7 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
         </span>
       </motion.p>
 
-      {result.findings.length > 0 && <AllFindings result={result} />}
+      {result.findings.length > 0 && <AllFindings result={result} verdicts={verdicts} />}
 
       <motion.section className="card cf-source" variants={rise}>
         <h2 className="cf-card-title">Source</h2>
@@ -506,49 +619,65 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
   )
 }
 
-function AllFindings({ result }: { result: ResearchResult }) {
+/** The full label, compact: groups of small chips. Ingredients behind a "Doesn't fit" are marked. */
+function AllFindings({ result, verdicts }: { result: ResearchResult; verdicts: Verdict[] }) {
   const rise = useRise()
-  const [open, setOpen] = useState(false)
+  const g = groupFindings(result.findings)
+  const flagged = new Set(
+    verdicts
+      .filter((v) => v.value === 'doesnt_fit')
+      .flatMap((v) => v.evidence.map((f) => f.text.replace(/^(contains|may contain) /i, '').replace(/ label$/i, '').toLowerCase())),
+  )
+  const groups = [
+    { title: 'Ingredients', items: g.ingredients },
+    { title: 'Allergens', items: g.allergens },
+    { title: 'May contain', items: g.traces },
+    { title: 'Labels', items: g.labels },
+  ].filter((x) => x.items.length)
+  const page = result.searched[0]
+
   return (
-    <motion.section className="card cf-findings" variants={rise}>
-      <button className="cf-findings-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span>
-          All Findings ({result.findings.length})
-          <span className="cf-findings-meta">{result.ingredientsComplete ? 'Full ingredient list found' : 'Ingredient list incomplete'}</span>
+    <motion.section className="card cf-label" variants={rise}>
+      <div className="cf-label-head">
+        <h2 className="cf-card-title">Full label</h2>
+        <span className={`cf-label-state${result.ingredientsComplete ? '' : ' cf-label-partial'}`}>
+          {result.ingredientsComplete ? 'Complete list' : 'May be incomplete'}
         </span>
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
-          <ChevronDown size={18} />
-        </motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="list"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-            style={{ overflow: 'hidden' }}
-          >
-            <ul className="evidence">
-              {result.findings.map((f, i) => (
-                <EvidenceItem key={i} finding={f} />
-              ))}
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
+      {groups.map((grp) => (
+        <div key={grp.title} className="cf-label-group">
+          <h3>
+            {grp.title} <span>{grp.items.length}</span>
+          </h3>
+          <p className="cf-chips">
+            {grp.items.map((t) => (
+              <span key={t} className={`cf-chip${flagged.has(t.toLowerCase()) ? ' cf-chip-bad' : ''}`}>
+                {t}
+              </span>
+            ))}
+          </p>
+        </div>
+      ))}
+      {page && (
+        <a className="cf-label-src" href={page.url} target="_blank" rel="noopener noreferrer">
+          <SourceLogo id="off" size={14} /> Open Food Facts · community-reported <LinkIcon size={12} />
+        </a>
+      )}
     </motion.section>
   )
 }
 
-const EVIDENCE_SHOWN = 3
+const EVIDENCE_SHOWN = 12
 
 function VerdictCard({ verdict }: { verdict: Verdict }) {
   const rise = useRise()
   const [showAll, setShowAll] = useState(false)
   const evidence = dedupe(verdict.evidence, (f) => f.type + f.text + f.source.url)
   const shown = showAll ? evidence : evidence.slice(0, EVIDENCE_SHOWN)
+  const sources = dedupe(evidence.map((f) => f.source), (src) => src.url)
+  // Chips are tinted by what they mean for this verdict.
+  const tone = (f: Finding) =>
+    verdict.value === 'doesnt_fit' ? ' cf-chip-bad' : f.type === 'may_contain' ? ' cf-chip-warn' : f.type === 'certification' ? ' cf-chip-good' : ''
   return (
     <motion.article className={`card verdict-card verdict-card-${verdict.value}`} variants={rise} layout="position">
       <div className="verdict-card-head">
@@ -564,49 +693,31 @@ function VerdictCard({ verdict }: { verdict: Verdict }) {
       <p className="verdict-reason">{verdict.reason}</p>
       {evidence.length > 0 ? (
         <>
-          <h4>Evidence</h4>
-          <ul className="evidence">
-            <AnimatePresence initial={false}>
-              {shown.map((f, i) => (
-                <EvidenceItem key={f.type + f.text + f.source.url} finding={f} animate={i >= EVIDENCE_SHOWN} />
-              ))}
-            </AnimatePresence>
-          </ul>
-          {evidence.length > EVIDENCE_SHOWN && (
-            <button className="cf-more" onClick={() => setShowAll(!showAll)}>
-              {showAll ? 'Show less' : `Show ${evidence.length - EVIDENCE_SHOWN} more`}
-            </button>
-          )}
+          <h4>
+            {verdict.value === 'fits' ? 'Checked' : 'Evidence'} <span className="cf-h4-count">{evidence.length}</span>
+          </h4>
+          <p className="cf-chips">
+            {shown.map((f) => (
+              <span key={f.type + f.text} className={`cf-chip${tone(f)}`} title={FINDING_TYPE_LABELS[f.type]}>
+                {f.text}
+              </span>
+            ))}
+            {evidence.length > EVIDENCE_SHOWN && (
+              <button className="cf-chip cf-chip-more" onClick={() => setShowAll(!showAll)}>
+                {showAll ? 'Show less' : `+${evidence.length - EVIDENCE_SHOWN} more`}
+              </button>
+            )}
+          </p>
+          {sources.map((src) => (
+            <a key={src.url} className="cf-label-src cf-evidence-src" href={src.url} target="_blank" rel="noopener noreferrer">
+              <SourceLogo id="off" size={14} /> {src.title || hostOf(src.url)} · {SOURCE_KIND_LABELS[src.kind].toLowerCase()} <LinkIcon size={12} />
+            </a>
+          ))}
         </>
       ) : (
         <p className="cf-sub">No Findings back this up yet.</p>
       )}
     </motion.article>
-  )
-}
-
-function EvidenceItem({ finding, animate }: { finding: Finding; animate?: boolean }) {
-  const label = FINDING_TYPE_LABELS[finding.type]
-  // Skip the label when the text already starts with it ("May contain milk").
-  const repeats = finding.text.toLowerCase().startsWith(label.toLowerCase())
-  return (
-    <motion.li
-      className={`evidence-item evidence-${finding.type}`}
-      initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
-      animate={{ opacity: 1, height: 'auto', y: 0 }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.3, ease: EASE }}
-    >
-      <div>
-        {!repeats && <span className="finding-type">{label}</span>} {finding.text}
-      </div>
-      <div className="evidence-source">
-        <SourceKindBadge kind={finding.source.kind} />
-        <a href={finding.source.url} target="_blank" rel="noopener noreferrer">
-          {finding.source.title || hostOf(finding.source.url)} <LinkIcon />
-        </a>
-      </div>
-    </motion.li>
   )
 }
 
