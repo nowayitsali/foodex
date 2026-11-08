@@ -32,11 +32,22 @@ export function padBox(box: Box, pad: number): Box {
   return { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 }
 }
 
-// COCO objects that are food, or hold food or drink. "person" and the rest are left out.
-const FOOD_OBJECTS = [
+// The model knows 80 everyday objects (COCO). Packaged food isn't one of them, so a chip bag or
+// juice box comes back with a random label like "kite" or "toothbrush". The box is only a hint,
+// so take any object you'd hold, and skip people, animals, vehicles and furniture.
+const NOT_PRODUCTS = new Set([
+  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+  'traffic light', 'fire hydrant', 'parking meter', 'bench', 'cat', 'dog', 'horse', 'sheep', 'cow',
+  'elephant', 'bear', 'zebra', 'giraffe', 'chair', 'couch', 'bed', 'dining table', 'potted plant',
+  'tv', 'laptop', 'keyboard', 'refrigerator', 'oven', 'sink',
+])
+// Real food labels win over a lucky guess.
+const FOOD = new Set([
   'bottle', 'wine glass', 'cup', 'bowl', 'banana', 'apple', 'sandwich', 'orange',
   'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake',
-]
+])
+// Something filling nearly the whole frame is the background, not a product.
+const MAX_AREA = 0.85
 
 const VISION_VERSION = '1.1.1'
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}/wasm`
@@ -58,21 +69,24 @@ export function getProductDetector(): Promise<ProductDetector | null> {
       const detector = await ObjectDetector.createFromOptions(files, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
         runningMode: 'VIDEO',
-        scoreThreshold: 0.35,
-        maxResults: 3,
-        categoryAllowlist: FOOD_OBJECTS,
+        scoreThreshold: 0.3,
+        maxResults: 5,
       })
       let lastTime = 0
       return {
         detect(video, now) {
           // MediaPipe needs timestamps that always go up.
           lastTime = Math.max(now, lastTime + 1)
-          const best = detector
-            .detectForVideo(video, lastTime)
-            .detections.filter((d) => d.boundingBox)
-            .sort((a, b) => (b.categories[0]?.score ?? 0) - (a.categories[0]?.score ?? 0))[0]
-          const b = best?.boundingBox
-          return b ? { x: b.originX, y: b.originY, width: b.width, height: b.height } : null
+          const frame = video.videoWidth * video.videoHeight
+          let best: { box: Box; rank: number } | null = null
+          for (const d of detector.detectForVideo(video, lastTime).detections) {
+            const top = d.categories[0]
+            const b = d.boundingBox
+            if (!top || !b || NOT_PRODUCTS.has(top.categoryName) || b.width * b.height > frame * MAX_AREA) continue
+            const rank = top.score + (FOOD.has(top.categoryName) ? 0.2 : 0)
+            if (!best || rank > best.rank) best = { box: { x: b.originX, y: b.originY, width: b.width, height: b.height }, rank }
+          }
+          return best?.box ?? null
         },
       }
     } catch {

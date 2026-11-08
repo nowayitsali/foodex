@@ -131,7 +131,7 @@
 .sx-track > div { position: absolute; top: 0; left: 0; }
 .sx-track-code { border: 1.5px solid var(--sx-yellow); border-radius: 10px; box-shadow: 0 0 6px rgb(0 0 0 / 25%); transition: border-width 0.15s, box-shadow 0.2s; }
 .sx-track-read { border-width: 2.5px; box-shadow: 0 0 14px rgb(255 214 10 / 45%); }
-.sx-track-product { border: 1.5px dashed rgb(255 214 10 / 65%); border-radius: 16px; }
+.sx-track-product { border: 1.5px solid rgb(255 214 10 / 85%); border-radius: 14px; box-shadow: 0 0 6px rgb(0 0 0 / 20%); }
 @media (prefers-reduced-motion: reduce) {
   .sx-track-code { transition: none; }
 }
