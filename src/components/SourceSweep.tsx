@@ -79,7 +79,7 @@ export function identifySteps(r: { image?: boolean; code?: string; query?: strin
   if (r.code)
     return [
       { source: 'off', label: `Looking up barcode ${r.code}`, icon: <ScanBarcode size={ICON} /> },
-      { source: 'off', label: 'Opening the product page', icon: <Images size={ICON} /> },
+      { source: 'off', label: 'Confirming the product name', icon: <Search size={ICON} /> },
     ]
   if (r.image)
     return [
@@ -159,8 +159,10 @@ export function SourceSweep({ title, steps, image, sources, stepMs = 900 }: Prop
             <motion.div
               key={id}
               className={`sw-logo${on ? ' sw-logo-on' : ''}${done ? ' sw-logo-done' : ''}`}
-              initial={reduce ? false : { opacity: 0, y: 12, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              // No blur here: a leftover filter would give each tile its own layer, and the
+              // moving lens would cover the logo it is leaving.
+              initial={reduce ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08 + i * 0.08, ease: EASE }}
             >
               {on && <motion.span layoutId="sw-lens" className="sw-lens" transition={{ type: 'spring', stiffness: 320, damping: 30 }} />}

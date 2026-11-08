@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react'
+import { ArrowRight, ChevronDown, RotateCcw, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import type { Finding, Identification, RestrictionProfile, Verdict } from '../domain/types'
 import { judge, overall } from '../domain/verdicts'
 import { identify, research, type ResearchResult } from '../lib/api'
-import { AlertIcon, CloseIcon, InfoIcon, LinkIcon } from '../components/icons'
-import { FINDING_TYPE_LABELS, SourceKindBadge, Spinner, VerdictBadge } from '../components/ui'
+import { AlertIcon, InfoIcon, LinkIcon } from '../components/icons'
+import { FINDING_TYPE_LABELS, SourceKindBadge, VERDICT_LABELS } from '../components/ui'
+import { identifySteps, researchSteps, SourceLogo, SourceSweep, type SourceId } from '../components/SourceSweep'
+import './checkflow.css'
 
 // Scan or Search -> Identification -> Confirmed item -> research -> Verdicts.
 // Verdicts come only from judge() on this device (ADR 0001).
@@ -21,7 +25,8 @@ export interface CheckRequest {
 }
 
 type Step =
-  | { kind: 'identifying' }
+  /** matching: a photo guess being matched to a real product by name (no Gemini call). */
+  | { kind: 'identifying'; matching?: string }
   /** refining: the confirmed guess we are now matching to an exact product. */
   | { kind: 'candidates'; items: Identification[]; refining?: Identification }
   | { kind: 'rejected'; empty: boolean }
@@ -51,6 +56,20 @@ function errorMessage(e: unknown) {
   return msg
 }
 
+// Motion: each step fades through, and the cards inside it rise in one after another.
+const EASE = [0.22, 1, 0.36, 1] as const
+const SPRING = { type: 'spring', stiffness: 300, damping: 28, mass: 0.9 } as const
+const list: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.075, delayChildren: 0.05 } } }
+const rise: Variants = {
+  hidden: { opacity: 0, y: 26, scale: 0.97, filter: 'blur(8px)' },
+  show: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: SPRING },
+}
+const riseReduced: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.2 } } }
+
+function useRise() {
+  return useReducedMotion() ? riseReduced : rise
+}
+
 interface Props {
   request: CheckRequest
   profile: RestrictionProfile
@@ -59,6 +78,7 @@ interface Props {
 }
 
 export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props) {
+  const reduce = useReducedMotion()
   const [hints, setHints] = useState(request.hints)
   const [step, setStep] = useState<Step>({ kind: 'identifying' })
   // Each call gets a number, so a late answer from an old call is ignored.
@@ -91,8 +111,9 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
     // A guess with no barcode has no ingredient data. Match it to a real
     // product first (a typed Search, so no Gemini call), then research that.
     if (!item.code && item.kind !== 'dish' && item.kind !== 'menu') {
-      setStep({ kind: 'identifying' })
-      identify({ query: [item.brand, item.name].filter(Boolean).join(' ') })
+      const query = [item.brand, item.name].filter(Boolean).join(' ')
+      setStep({ kind: 'identifying', matching: query })
+      identify({ query })
         .then((items) => {
           if (id !== run.current) return
           if (items.length) setStep({ kind: 'candidates', items, refining: item })
@@ -125,116 +146,206 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
   }, [])
 
   const title = step.kind === 'results' ? 'Results' : step.kind === 'researching' ? 'Researching' : 'Identification'
+  const restrictionCount = profile.restrictions.length + profile.custom.length
+
+  // Sweep steps are memoised, so the timer restarts only when the stage changes.
+  const sweep = useMemo(() => {
+    if (step.kind === 'identifying' && step.matching) {
+      return { title: 'Finding the exact product', steps: identifySteps({ query: step.matching }), sources: ['off', 'foodex'] as SourceId[] }
+    }
+    if (step.kind === 'identifying') {
+      const steps = identifySteps({ image: !!request.image, code: request.code, query: request.query })
+      const sources: SourceId[] = request.image ? ['gemini', 'off', 'foodex'] : ['off', 'foodex']
+      return { title: request.code ? 'Looking up the barcode' : request.image ? 'Working out what this is' : 'Searching for matches', steps, sources }
+    }
+    if (step.kind === 'researching') {
+      return { title: `Checking ${step.item.name}`, steps: researchSteps(restrictionCount), sources: ['off', 'foodex'] as SourceId[] }
+    }
+    return null
+  }, [step, request.image, request.code, request.query, restrictionCount])
+
+  // One key per screen, so AnimatePresence plays the hand-off between them.
+  const stepKey = step.kind === 'candidates' ? `candidates-${step.refining ? 'r' : 'g'}` : step.kind === 'identifying' && step.matching ? 'matching' : step.kind
 
   return (
-    <div className="overlay-page" role="dialog" aria-label={title} ref={pageRef}>
-      <header className="page-header">
+    <div className="overlay-page cr cf" role="dialog" aria-label={title} ref={pageRef}>
+      <header className="page-header cf-header">
         <span className="icon-btn-spacer" />
-        <h1>{title}</h1>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.h1
+            key={title}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, filter: 'blur(4px)' }}
+            transition={{ duration: 0.3, ease: EASE }}
+          >
+            {title}
+          </motion.h1>
+        </AnimatePresence>
         <button className="icon-btn" onClick={onClose} aria-label="Close">
-          <CloseIcon />
+          <X size={18} />
         </button>
       </header>
 
       <div className="page-body">
-        <div className="check-subject">
-          {request.preview ? <img src={request.preview} alt="Your Scan" /> : null}
+        <motion.div
+          className="cf-subject"
+          initial={reduce ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE }}
+        >
+          <span className="cf-subject-thumb">
+            {request.preview ? <img src={request.preview} alt="Your Scan" /> : request.code ? <ScanLine size={22} /> : <Search size={20} />}
+          </span>
           <div>
-            <span className="muted small">{request.code ? 'Barcode' : request.image ? 'Scan' : 'Search'}</span>
+            <span className="cf-eyebrow">
+              <span />
+              {request.code ? 'Barcode' : request.image ? 'Scan' : 'Search'}
+            </span>
             <strong>{request.code ?? request.query ?? 'Photo from your camera'}</strong>
-            {hints.trim() && <span className="muted small">Hints: {hints.trim()}</span>}
+            {hints.trim() && <span className="cf-subject-hint">Hints: {hints.trim()}</span>}
           </div>
-        </div>
+        </motion.div>
 
-        {step.kind === 'identifying' && <Spinner label="Working out what this is…" />}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={stepKey}
+            className="cf-step"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10, filter: 'blur(6px)', transition: { duration: 0.2, ease: 'easeIn' } }}
+          >
+            {sweep && (
+              <SourceSweep
+                title={sweep.title}
+                steps={sweep.steps}
+                sources={sweep.sources}
+                image={step.kind === 'researching' ? step.item.imageUrl ?? request.preview : request.preview}
+              />
+            )}
 
-        {step.kind === 'candidates' && (
-          <section>
-            <h2 className="section-title">{step.refining ? 'Which exact product?' : 'Is this it?'}</h2>
-            <p className="muted small">
-              {step.refining
-                ? `Pick the product that matches your ${step.refining.name}, so Foodex can read its ingredients.`
-                : 'Confirm the right item before Foodex researches it.'}
-            </p>
-            <div className="candidates">
-              {step.items.map((item, i) => (
-                <article key={i} className="card candidate">
-                  <div className="candidate-head">
-                    <span className="kind-tag">{KIND_LABELS[item.kind] ?? 'Food'}</span>
-                    {i === 0 && step.items.length > 1 && <span className="kind-tag kind-tag-best">Best guess</span>}
-                  </div>
-                  {item.imageUrl && <img className="candidate-image" src={item.imageUrl} alt="" loading="lazy" />}
-                  <h3>{item.name}</h3>
-                  {item.brand && <p className="candidate-brand">{item.brand}</p>}
-                  {item.description && <p className="muted small">{item.description}</p>}
-                  {!item.code && item.kind !== 'dish' && item.kind !== 'menu' && (
-                    <p className="muted small">Not matched to a product yet. Foodex will look for the exact one next.</p>
-                  )}
-                  <button className="btn btn-primary btn-block" onClick={() => confirm(item)}>
-                    Yes, that's it
+            {step.kind === 'candidates' && (
+              <Candidates
+                items={step.items}
+                refining={step.refining}
+                onPick={confirm}
+                onNone={() => (step.refining ? doResearch(step.refining, ++run.current) : setStep({ kind: 'rejected', empty: false }))}
+              />
+            )}
+
+            {step.kind === 'rejected' && request.code && (
+              <section className="card cf-panel">
+                <h2 className="cf-h2">
+                  This barcode isn't in <em>Open Food Facts</em> yet
+                </h2>
+                <p className="cf-sub">Search for the product by name instead, or take a photo of the label.</p>
+                <button className="cf-btn cf-btn-primary" onClick={onSearchInstead}>
+                  <Search size={16} /> Search by name
+                </button>
+              </section>
+            )}
+
+            {step.kind === 'rejected' && !request.code && (
+              <section className="card cf-panel">
+                <h2 className="cf-h2">{step.empty ? <>Foodex couldn't tell <em>what this is</em></> : <>Help Foodex <em>find it</em></>}</h2>
+                <p className="cf-sub">Add a Hint the {request.image ? 'photo' : 'name'} doesn't show, like the brand, flavour or restaurant.</p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    runIdentify(hints)
+                  }}
+                >
+                  <label className="field">
+                    <span>Hints</span>
+                    <input autoFocus type="text" value={hints} onChange={(e) => setHints(e.target.value)} placeholder="e.g. Nestlé, dark chocolate, UK" />
+                  </label>
+                  <button className="cf-btn cf-btn-primary" type="submit">
+                    <Sparkles size={16} /> Try again
                   </button>
-                </article>
-              ))}
-            </div>
-            {step.refining ? (
-              <button className="btn btn-secondary btn-block" onClick={() => doResearch(step.refining!, ++run.current)}>
-                None of these, check it anyway
-              </button>
-            ) : (
-              <button className="btn btn-secondary btn-block" onClick={() => setStep({ kind: 'rejected', empty: false })}>
-                None of these
-              </button>
+                </form>
+                {request.image && (
+                  <button className="cf-btn cf-btn-ghost" onClick={onSearchInstead}>
+                    Search by name instead
+                  </button>
+                )}
+              </section>
             )}
-          </section>
-        )}
 
-        {step.kind === 'rejected' && request.code && (
-          <section className="card retry">
-            <h2>This barcode isn't in Open Food Facts yet</h2>
-            <p className="muted small">Search for the product by name instead, or take a photo of the label.</p>
-            <button className="btn btn-primary btn-block" onClick={onSearchInstead}>Search by name</button>
-          </section>
-        )}
+            {step.kind === 'error' && <ErrorCard message={step.message} onRetry={step.retry} />}
 
-        {step.kind === 'rejected' && !request.code && (
-          <section className="card retry">
-            <h2>{step.empty ? "Foodex couldn't tell what this is" : 'Help Foodex find it'}</h2>
-            <p className="muted small">Add a Hint the {request.image ? 'photo' : 'name'} doesn't show, like the brand, flavour or restaurant.</p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                runIdentify(hints)
-              }}
-            >
-              <label className="field">
-                <span>Hints</span>
-                <input autoFocus type="text" value={hints} onChange={(e) => setHints(e.target.value)} placeholder="e.g. Nestlé, dark chocolate, UK" />
-              </label>
-              <button className="btn btn-primary btn-block" type="submit">Try again</button>
-            </form>
-            {request.image && (
-              <button className="btn btn-ghost btn-block" onClick={onSearchInstead}>Search by name instead</button>
+            {step.kind === 'results' && (
+              <Results item={step.item} result={step.result} profile={profile} onWrongItem={() => runIdentify(hints)} onDone={onClose} />
             )}
-          </section>
-        )}
-
-        {step.kind === 'researching' && (
-          <Spinner label={`Looking up ${step.item.name}: ingredients, allergens and labels…`} />
-        )}
-
-        {step.kind === 'error' && <ErrorCard message={step.message} onRetry={step.retry} />}
-
-        {step.kind === 'results' && (
-          <Results
-            item={step.item}
-            result={step.result}
-            profile={profile}
-            onWrongItem={() => runIdentify(hints)}
-            onDone={onClose}
-          />
-        )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+interface CandidatesProps {
+  items: Identification[]
+  refining?: Identification
+  onPick: (item: Identification) => void
+  onNone: () => void
+}
+
+function Candidates({ items, refining, onPick, onNone }: CandidatesProps) {
+  const item = useRise()
+  const reduce = useReducedMotion()
+  return (
+    <motion.section className="cf-cands-wrap" variants={list} initial="hidden" animate="show">
+      <motion.div className="cf-intro" variants={item}>
+        <h2 className="cf-h2">{refining ? <>Which exact <em>product?</em></> : <>Is this <em>it?</em></>}</h2>
+        <p className="cf-sub">
+          {refining
+            ? `Pick the product that matches your ${refining.name}, so Foodex can read its ingredients.`
+            : 'Confirm the right item before Foodex researches it.'}
+        </p>
+      </motion.div>
+
+      <ul className="cf-cands">
+        {items.map((c, i) => {
+          const unmatched = !c.code && c.kind !== 'dish' && c.kind !== 'menu'
+          return (
+            <motion.li key={`${c.code ?? ''}${c.name}${i}`} variants={item}>
+              <motion.button
+                type="button"
+                className={`cf-cand${i === 0 && items.length > 1 ? ' cf-cand-best' : ''}`}
+                onClick={() => onPick(c)}
+                whileHover={reduce ? undefined : { y: -2 }}
+                whileTap={reduce ? undefined : { scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                aria-label={`Yes, that's it: ${[c.name, c.brand].filter(Boolean).join(', ')}`}
+              >
+                <span className="cf-cand-img">
+                  {c.imageUrl ? <img src={c.imageUrl} alt="" loading="lazy" /> : <span className="cf-cand-initial">{c.name.slice(0, 1)}</span>}
+                </span>
+                <span className="cf-cand-main">
+                  <span className="cf-cand-tags">
+                    <span>{KIND_LABELS[c.kind] ?? 'Food'}</span>
+                    {i === 0 && items.length > 1 && <span className="cf-best">Best guess</span>}
+                  </span>
+                  <span className="cf-cand-name">{c.name}</span>
+                  {c.brand && <span className="cf-cand-brand">{c.brand}</span>}
+                  {c.description && <span className="cf-cand-desc">{c.description}</span>}
+                  {unmatched && <span className="cf-cand-desc cf-cand-note">Not matched to a product yet. Foodex will look for the exact one next.</span>}
+                </span>
+                <span className="cf-cand-go" aria-hidden>
+                  <ArrowRight size={18} />
+                </span>
+              </motion.button>
+            </motion.li>
+          )
+        })}
+      </ul>
+
+      <motion.div variants={item}>
+        <button className="cf-btn cf-btn-ghost" onClick={onNone}>
+          {refining ? 'None of these, check it anyway' : 'None of these'}
+        </button>
+      </motion.div>
+    </motion.section>
   )
 }
 
@@ -249,7 +360,9 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
         {missingKey ? (
           <p className="small">Get a free key at aistudio.google.com, put it in <code>.env</code> as <code>GEMINI_API_KEY</code>, and restart <code>npm run dev</code>.</p>
         ) : (
-          <button className="btn btn-secondary btn-sm" onClick={onRetry}>Try again</button>
+          <button className="cf-btn cf-btn-secondary cf-btn-sm" onClick={onRetry}>
+            <RotateCcw size={14} /> Try again
+          </button>
         )}
       </div>
     </section>
@@ -275,6 +388,7 @@ interface ResultsProps {
 }
 
 function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
+  const rise = useRise()
   // Recomputed when the profile changes, so edits apply right away.
   const verdicts = useMemo(
     () => judge({ findings: result.findings, ingredientsComplete: result.ingredientsComplete }, profile),
@@ -283,23 +397,47 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
   const answer = overall(verdicts)
   const count = (v: Verdict['value']) => verdicts.filter((x) => x.value === v).length
   const searched = dedupe(result.searched, (s) => s.url)
+  const tone = verdicts.length ? answer : 'none'
 
   return (
-    <section className="results">
-      <div className={`verdict-hero verdict-hero-${verdicts.length ? answer : 'none'}`}>
-        <span className="muted small">{item.brand ? `${item.name} · ${item.brand}` : item.name}</span>
+    <motion.section className="results cf-results" variants={list} initial="hidden" animate="show">
+      <motion.div className={`cf-hero cf-hero-${tone}`} variants={rise}>
+        <div className="cf-hero-top">
+          {item.imageUrl && <img className="cf-hero-img" src={item.imageUrl} alt="" />}
+          <span className="cf-hero-name">{item.brand ? `${item.name} · ${item.brand}` : item.name}</span>
+        </div>
         {verdicts.length ? (
           <>
-            <VerdictBadge value={answer} large />
+            <motion.strong
+              className="cf-hero-verdict"
+              initial={{ opacity: 0, y: 14, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
+            >
+              {VERDICT_LABELS[answer]}
+            </motion.strong>
             <p>{OVERALL_TEXT[answer](verdicts.length, count(answer))}</p>
+            <div className="cf-hero-tally" aria-hidden>
+              {[...verdicts]
+                .sort((a, b) => SEVERITY[a.value] - SEVERITY[b.value])
+                .map((v, i) => (
+                  <motion.span
+                    key={v.restrictionKey}
+                    className={`cf-tick cf-tick-${v.value}`}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 22, delay: 0.3 + i * 0.05 }}
+                  />
+                ))}
+            </div>
           </>
         ) : (
           <p>You haven't picked any restrictions, so there's nothing to check. Add some in Settings.</p>
         )}
-      </div>
+      </motion.div>
 
       {result.findings.length === 0 && (
-        <div className="note note-warn">
+        <motion.div className="note note-warn" variants={rise}>
           <InfoIcon size={18} />
           <div>
             <strong>No ingredient data for {item.name}.</strong>{' '}
@@ -307,7 +445,7 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
               ? "Foodex can't see what's inside a dish from a photo. Ask the restaurant, or check their menu."
               : 'Open Food Facts has no ingredient list for it. Scan the barcode on the package, or search for the exact product name.'}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {[...verdicts]
@@ -316,99 +454,146 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
           <VerdictCard key={v.restrictionKey} verdict={v} />
         ))}
 
-      <p className="note note-info">
+      <motion.p className="note note-info" variants={rise}>
         <InfoIcon size={18} />
         <span>
           Always check the physical label too. Recipes change, and online sources can be out of date. Foodex says whether food fits the
           restrictions you listed. It isn't medical advice.
         </span>
-      </p>
+      </motion.p>
 
-      {result.findings.length > 0 && (
-        <details className="card all-findings">
-          <summary>All Findings ({result.findings.length}){result.ingredientsComplete ? ' · full ingredient list found' : ' · ingredient list incomplete'}</summary>
-          <ul className="evidence">
-            {result.findings.map((f, i) => (
-              <EvidenceItem key={i} finding={f} />
-            ))}
-          </ul>
-        </details>
-      )}
+      {result.findings.length > 0 && <AllFindings result={result} />}
 
-      <section className="card">
-        <h2>Source</h2>
+      <motion.section className="card cf-source" variants={rise}>
+        <h2 className="cf-card-title">Source</h2>
         {searched.length ? (
-          <ul className="searched">
+          <ul className="cf-searched">
             {searched.map((s) => (
               <li key={s.url}>
                 <a href={s.url} target="_blank" rel="noopener noreferrer">
-                  {s.title} <LinkIcon />
+                  <span className="cf-searched-logo">
+                    <SourceLogo id="off" size={22} />
+                  </span>
+                  <span>{s.title}</span>
+                  <LinkIcon />
                 </a>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="muted small">
+          <p className="cf-sub">
             {item.code
               ? "This product's page on Open Food Facts has no ingredient data yet."
               : "This item isn't matched to a product in Open Food Facts, so there's no ingredient list to check. Try Search by name to find the exact product."}
           </p>
         )}
-        <p className="muted small">
+        <p className="cf-fine">
           Ingredient data from{' '}
           <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener noreferrer">Open Food Facts</a>, a community database
           (ODbL). It can be incomplete or out of date.
         </p>
-      </section>
+      </motion.section>
 
-      <div className="results-actions">
-        <button className="btn btn-primary btn-block" onClick={onDone}>Check something else</button>
-        <button className="btn btn-ghost btn-block" onClick={onWrongItem}>Wrong item? Identify again</button>
-      </div>
-    </section>
+      <motion.div className="results-actions" variants={rise}>
+        <button className="cf-btn cf-btn-primary" onClick={onDone}>
+          <ScanLine size={16} /> Check something else
+        </button>
+        <button className="cf-btn cf-btn-ghost" onClick={onWrongItem}>
+          Wrong item? Identify again
+        </button>
+      </motion.div>
+    </motion.section>
+  )
+}
+
+function AllFindings({ result }: { result: ResearchResult }) {
+  const rise = useRise()
+  const [open, setOpen] = useState(false)
+  return (
+    <motion.section className="card cf-findings" variants={rise}>
+      <button className="cf-findings-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span>
+          All Findings ({result.findings.length})
+          <span className="cf-findings-meta">{result.ingredientsComplete ? 'Full ingredient list found' : 'Ingredient list incomplete'}</span>
+        </span>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
+          <ChevronDown size={18} />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="list"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: EASE }}
+            style={{ overflow: 'hidden' }}
+          >
+            <ul className="evidence">
+              {result.findings.map((f, i) => (
+                <EvidenceItem key={i} finding={f} />
+              ))}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.section>
   )
 }
 
 const EVIDENCE_SHOWN = 3
 
 function VerdictCard({ verdict }: { verdict: Verdict }) {
+  const rise = useRise()
   const [showAll, setShowAll] = useState(false)
   const evidence = dedupe(verdict.evidence, (f) => f.type + f.text + f.source.url)
   const shown = showAll ? evidence : evidence.slice(0, EVIDENCE_SHOWN)
   return (
-    <article className={`card verdict-card verdict-card-${verdict.value}`}>
+    <motion.article className={`card verdict-card verdict-card-${verdict.value}`} variants={rise} layout="position">
       <div className="verdict-card-head">
         <h3>{verdict.label}</h3>
-        <VerdictBadge value={verdict.value} />
+        <span className={`cf-pill cf-pill-${verdict.value}`}>
+          <span className="cf-pill-dot" />
+          {VERDICT_LABELS[verdict.value]}
+        </span>
       </div>
       <p className="verdict-reason">{verdict.reason}</p>
       {evidence.length > 0 ? (
         <>
           <h4>Evidence</h4>
           <ul className="evidence">
-            {shown.map((f, i) => (
-              <EvidenceItem key={i} finding={f} />
-            ))}
+            <AnimatePresence initial={false}>
+              {shown.map((f, i) => (
+                <EvidenceItem key={f.type + f.text + f.source.url} finding={f} animate={i >= EVIDENCE_SHOWN} />
+              ))}
+            </AnimatePresence>
           </ul>
           {evidence.length > EVIDENCE_SHOWN && (
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowAll(!showAll)}>
+            <button className="cf-more" onClick={() => setShowAll(!showAll)}>
               {showAll ? 'Show less' : `Show ${evidence.length - EVIDENCE_SHOWN} more`}
             </button>
           )}
         </>
       ) : (
-        <p className="muted small">No Findings back this up yet.</p>
+        <p className="cf-sub">No Findings back this up yet.</p>
       )}
-    </article>
+    </motion.article>
   )
 }
 
-function EvidenceItem({ finding }: { finding: Finding }) {
+function EvidenceItem({ finding, animate }: { finding: Finding; animate?: boolean }) {
   const label = FINDING_TYPE_LABELS[finding.type]
   // Skip the label when the text already starts with it ("May contain milk").
   const repeats = finding.text.toLowerCase().startsWith(label.toLowerCase())
   return (
-    <li className={`evidence-item evidence-${finding.type}`}>
+    <motion.li
+      className={`evidence-item evidence-${finding.type}`}
+      initial={animate ? { opacity: 0, height: 0, y: -6 } : false}
+      animate={{ opacity: 1, height: 'auto', y: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.3, ease: EASE }}
+    >
       <div>
         {!repeats && <span className="finding-type">{label}</span>} {finding.text}
       </div>
@@ -418,7 +603,7 @@ function EvidenceItem({ finding }: { finding: Finding }) {
           {finding.source.title || hostOf(finding.source.url)} <LinkIcon />
         </a>
       </div>
-    </li>
+    </motion.li>
   )
 }
 
