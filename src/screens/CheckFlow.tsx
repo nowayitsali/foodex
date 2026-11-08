@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react'
-import { ArrowRight, ChevronDown, RotateCcw, ScanLine, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, CircleHelp, RotateCcw, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import type { Finding, Identification, RestrictionProfile, Verdict } from '../domain/types'
 import { judge, overall } from '../domain/verdicts'
 import { identify, research, type ResearchResult } from '../lib/api'
@@ -552,6 +552,9 @@ function VerdictCard({ verdict }: { verdict: Verdict }) {
   return (
     <motion.article className={`card verdict-card verdict-card-${verdict.value}`} variants={rise} layout="position">
       <div className="verdict-card-head">
+        <span className="cf-vicon" aria-hidden>
+          {verdict.value === 'fits' ? <Check size={15} strokeWidth={3} /> : verdict.value === 'doesnt_fit' ? <X size={15} strokeWidth={3} /> : <CircleHelp size={16} strokeWidth={2.4} />}
+        </span>
         <h3>{verdict.label}</h3>
         <span className={`cf-pill cf-pill-${verdict.value}`}>
           <span className="cf-pill-dot" />
