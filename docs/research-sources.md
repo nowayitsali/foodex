@@ -50,6 +50,32 @@ USDA search, with `DEMO_KEY`, on 2026-11-08:
    single call, and the rules check that text. This is the most accurate source and covers every country.
 3. Leave the paid APIs and certifier directories for after the hackathon.
 
+## Halal and kosher certifiers (checked 2026-11-08)
+
+None of them publish an API. These are what their own websites load, and what each holds.
+
+| Certifier | What the site has | How it loads | Usable? |
+|---|---|---|---|
+| **HMA, Halal Monitoring Authority (Canada)** | "Halal Check" list of about **16,900 Canadian products**. Each row: category, brand, product name, ruling (Approved 73%, Not Approved 22%, HMA Certified 3%, Undetermined 2%), date checked (60% in 2026) and a reason ("Product is not Lacto-Ovo Vegetarian Suitable") | One public JSON table (WordPress Ninja Tables, 6 chunks of 3,000 rows). robots.txt allows it | **Best halal source for Canada.** No barcodes, so match on brand and name |
+| IFANCA (US, worldwide) | About 12,000 certified products: name, company, category, where sold | Public site search (`filter_products`) returning JSON | Weak: loose matching ("lays" finds "Malaysia"), mostly supplements and ingredients, few grocery items, no barcodes |
+| OU Kosher (US, worldwide) | Largest kosher list, with dairy, pareve and meat status | The site calls an internal JSON service (`productsearch-v2.oukosher.org`). Not tested: undocumented, needs OU's permission | Ask OU before using |
+| COR (Canada) | Kosher product search | Behind a Cloudflare bot check | No |
+| MK (Montreal) | Kosher product search | Not tested | Unknown |
+| isitkosherapp.com | Combines many kosher certifiers (OU, COR, MK and others) | Third-party site. Its robots.txt allows search and reference use, not AI training | Ask them before using |
+
+HMA spot checks: Doritos 24 rows (19 Not Approved), Cheetos 10 (8 Not Approved), Oreo 19 (12 Approved),
+Ruffles 13. No rows for Kit Kat, Nutella, Pringles, Haribo or Skittles.
+
+### How Foodex should use them
+
+- A certifier's ruling is a **Finding with Source kind Official certification**, quoted as theirs: "HMA: Approved,
+  checked Apr 2026". Foodex never declares something halal or kosher on its own (ADR 0001).
+- HMA's rules are its own (it approves lacto-ovo vegetarian products, or products certified by agencies it
+  recognises). Other Muslims may follow other rulings, so show it as one authority's view, with the reason and date.
+- Download the HMA table once a day on the server and match it by brand and product name. That is 6 requests a
+  day, not one per Scan.
+- For a real launch, ask HMA (info@hmacanada.org) and OU for permission. Neither publishes terms for automated use.
+
 ## Sources
 
 - [FoodData Central API Guide](https://fdc.nal.usda.gov/api-guide/)
@@ -58,3 +84,7 @@ USDA search, with `DEMO_KEY`, on 2026-11-08:
 - [Free barcode lookup APIs in 2026 (Ecomsource)](https://www.ecomsource.ai/blog/free-barcode-lookup-api-2026-guide)
 - [How to check if food is halal (HalalSpy)](https://halalspy.com/halal-knowledge/certification/how-to-check-halal/)
 - [FLIP, Food Label Information & Price (University of Toronto)](https://labbelab.utoronto.ca/projects/food-label-information-price-flip/)
+- [HMA Halal Check](https://hmacanada.org/halal-check/) and [HMA all products](https://hmacanada.org/all-products/)
+- [IFANCA certified products](https://ifanca.org/products/)
+- [OU Kosher product search](https://oukosher.org/product-search/)
+- [COR kosher product search](https://cor.ca/consumers/kosher-product-search/)
