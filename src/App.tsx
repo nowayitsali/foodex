@@ -14,6 +14,7 @@ import { RestaurantSearch } from './screens/RestaurantSearch'
 import { Scanner } from './screens/Scanner'
 import { SearchSheet } from './screens/SearchSheet'
 import { Settings } from './screens/Settings'
+import { Home } from './screens/Home'
 import './screens/cream.css'
 
 export type Screen = 'scanner' | 'nearby' | 'restaurants' | 'profile' | 'settings'
@@ -109,10 +110,38 @@ export default function App() {
     return <>{showHeader && <header className="foodex-home-header"><HomeButton onHome={goHome} /></header>}{content}</>
   }
 
-  if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
+  if (!authReady) return <div className="splash"><Spinner label="Loading Foodex" /></div>
 
-  if (entry === 'landing' || (user && screen === 'settings' && entry !== 'restaurants')) {
+  // Only signed-in people get past the login page. Demo mode exists only when
+  // Supabase isn't set up (local development without keys).
+  const allowedIn = !!user || (!supabase && demo)
+  if (!allowedIn) {
+    return (
+      <Login
+        onDemo={() => {
+          writeDemoFlag(true)
+          setDemo(true)
+          setEntry('landing')
+        }}
+      />
+    )
+  }
+
+  if (entry === 'landing') {
     if (signedIn && profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
+    return <Home
+      key={user?.id ?? 'guest'}
+      signedIn={allowedIn}
+      profile={user ? loadProfile(user) ?? profile ?? EMPTY_PROFILE : profile ?? loadProfile(null) ?? EMPTY_PROFILE}
+      onSave={updateProfile} onSignOut={signOut} onHome={goHome}
+      onLogin={() => { setScreen('settings'); setEntry('login') }}
+      onRestaurants={(next) => { setBrowseProfile(next); setScreen('restaurants'); setEntry('restaurants'); window.scrollTo({top:0}) }}
+      onScan={() => { if (!user) { writeDemoFlag(true); setDemo(true) } setScreen('scanner'); setEntry('app'); window.scrollTo({top:0}) }}
+    />
+  }
+
+  if (user && screen === 'settings' && entry !== 'restaurants') {
+    if (profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
     return <div className="cr"><Settings
       key={user?.id ?? 'guest'}
       home signedIn={!!user}
@@ -129,21 +158,6 @@ export default function App() {
     profile={browseProfile ?? profile ?? EMPTY_PROFILE}
     onBack={goHome}
   />)}</div>
-
-  if (!authReady) return withHome(<div className="splash"><Spinner label="Loading Foodex" /></div>)
-
-  if (!signedIn || (entry === 'login' && !user)) {
-    return (
-      <Login
-        onHome={goHome}
-        onDemo={() => {
-          writeDemoFlag(true)
-          setDemo(true)
-          setEntry('app')
-        }}
-      />
-    )
-  }
 
   if (profile === undefined) return withHome(<div className="splash"><Spinner /></div>)
 

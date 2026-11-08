@@ -1,0 +1,54 @@
+/* Home: one vertical checklist. Cream, forest green, serif accent. Always light. */
+.hm {
+  --hm-bg: #f9f7f1;
+  --hm-ink: #203c32;
+  --hm-muted: #748075;
+  --hm-line: #e4e3d8;
+  --hm-forest: #264c3b;
+  color-scheme: light;
+  min-height: 100dvh;
+  background: var(--hm-bg);
+  color: var(--hm-ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+.hm button { font: inherit; cursor: pointer; }
+.hm button:disabled { cursor: default; opacity: 0.7; }
+.hm button:focus-visible { outline: 3px solid #7c9868; outline-offset: 2px; }
+
+.hm-nav { max-width: 560px; margin: 0 auto; height: 80px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
+.hm .foodex-home-button { color: var(--hm-ink); }
+.hm .foodex-home-icon { background: #e4ebd8; color: var(--hm-ink); }
+.hm .foodex-home-wordmark { font-size: 26px; }
+.hm-login { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 30px; border: 1px solid #d8dccd; background: transparent; color: var(--hm-ink); font-size: 13px; }
+.hm-login:hover { background: #efede3; }
+
+.hm-main { max-width: 560px; margin: 0 auto; padding: 16px 20px 170px; }
+.hm-main h1 { margin: 0; font-size: 40px; line-height: 1.08; letter-spacing: -1.6px; font-weight: 500; }
+.hm-main h1 em { font-family: Georgia, serif; font-weight: 400; color: #768b59; letter-spacing: -1px; }
+.hm-sub { margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: var(--hm-muted); }
+
+.hm-group { margin-top: 28px; }
+.hm-group h2 { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #8a957c; }
+.hm-group ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hm-line); }
+.hm-group li { border-bottom: 1px solid var(--hm-line); }
+.hm-row { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 4px; border: 0; background: transparent; color: var(--hm-ink); font-size: 17px; text-align: left; }
+.hm-row:hover { background: #f1efe6; }
+.hm-box { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 1.5px solid #c5cbb8; background: #fffefa; color: #fff; transition: background 0.15s, border-color 0.15s; }
+.hm-row[aria-checked='true'] .hm-box { background: var(--hm-forest); border-color: var(--hm-forest); }
+.hm-row[aria-checked='true'] > span:first-child { font-weight: 600; }
+
+.hm-error { margin: 20px 0 0; padding: 12px 14px; border-radius: 10px; background: #f9e6e1; color: #7a2e22; font-size: 13px; }
+
+/* Buttons stay pinned to the bottom so they're always in reach. */
+.hm-bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 20px calc(env(safe-area-inset-bottom) + 12px); background: linear-gradient(to bottom, rgb(249 247 241 / 0%), var(--hm-bg) 28%); }
+.hm-bar-inner { max-width: 520px; margin: 0 auto; display: flex; gap: 10px; }
+.hm-btn { flex: 1; min-height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 12px; border: 1px solid #d6dbcc; background: #fffefa; color: var(--hm-ink); font-size: 15px; font-weight: 600; }
+.hm-btn:hover:not(:disabled) { background: #f3f1e8; }
+.hm-btn-primary { background: var(--hm-forest); border-color: var(--hm-forest); color: #fff; box-shadow: 0 10px 24px #264c3b2e; }
+.hm-btn-primary:hover:not(:disabled) { background: #1f3f31; }
+.hm-count { max-width: 520px; margin: 8px auto 0; text-align: center; font-size: 12px; color: var(--hm-muted); }
+
+@media (max-width: 420px) {
+  .hm-main h1 { font-size: 34px; }
+  .hm-btn { font-size: 14px; padding: 0 8px; gap: 7px; white-space: nowrap; }
+}

@@ -29,7 +29,7 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--lg-line);
 }
-.lg .foodex-home-button { color: var(--lg-ink); }
+.lg-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--lg-ink); }
 .lg .foodex-home-icon { background: #e4ebd8; color: var(--lg-ink); }
 .lg-back {
   display: inline-flex; align-items: center; gap: 10px;

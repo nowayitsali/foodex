@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
-import { ArrowRight, Check, Info, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Check, Info, Leaf, ShieldCheck } from 'lucide-react'
 import { signInWithGoogle, supabase } from '../lib/supabase'
 import { AppleLogo, GoogleLogo } from '../components/icons'
-import { HomeButton } from '../components/HomeButton'
+import '../components/home-button.css'
 import { AnimatedGroup, BorderTrail, Marquee, ShineButton, TextEffect, TextLoop } from '../components/premium'
 import './login.css'
 
@@ -14,7 +14,7 @@ function missingSupabaseKeys() {
   return ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'].filter((k) => !env[k])
 }
 
-export function Login({ onDemo, onHome }: { onDemo: () => void; onHome: () => void }) {
+export function Login({ onDemo }: { onDemo: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const missing = supabase ? [] : missingSupabaseKeys()
@@ -34,10 +34,10 @@ export function Login({ onDemo, onHome }: { onDemo: () => void; onHome: () => vo
   return (
     <div className="lg">
       <header className="lg-nav">
-        <HomeButton onHome={onHome} />
-        <button type="button" className="lg-back" onClick={onHome}>
-          Back to home <ArrowRight size={15} />
-        </button>
+        <span className="lg-logo" aria-label="foodex">
+          <span className="foodex-home-icon" aria-hidden><Leaf size={19} /></span>
+          <span className="foodex-home-wordmark">foodex<span>.</span></span>
+        </span>
       </header>
 
       <main className="lg-main">
