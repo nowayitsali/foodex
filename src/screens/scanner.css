@@ -54,7 +54,8 @@
 .sx-pill-empty { border-style: dashed; border-color: rgb(185 207 148 / 55%); color: var(--sx-sage); }
 
 /* Viewfinder. */
-.sx-finder { --pm-trail-radius: 26px; border-radius: 26px; top: 47%; transform: none; translate: -50% -50%; }
+/* Centered with margin: auto, so it stays centered while motion animates its transform. */
+.sx .sx-finder { --pm-trail-radius: 26px; border-radius: 26px; inset: 0; margin: auto; width: min(72vw, 320px); height: min(72vw, 320px); transform: none; translate: none; }
 .sx-corners { position: absolute; inset: 0; }
 .sx-corners span { position: absolute; width: 44px; height: 44px; border: 3px solid var(--sx-cream); opacity: 0.95; filter: drop-shadow(0 1px 6px rgb(0 0 0 / 35%)); }
 .sx-corners span:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 26px; }
