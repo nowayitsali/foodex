@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronRight, MapPin, Search, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ChevronRight, ListChecks, LocateFixed, MapPin, Search, ShieldCheck } from 'lucide-react'
 import type { RestrictionProfile, Verdict, VerdictValue } from '../domain/types'
 import { judge, overall } from '../domain/verdicts'
 import { restrictionNames, SOURCE_KIND_LABELS, VERDICT_LABELS } from '../components/ui'
@@ -19,6 +19,14 @@ interface CheckedDish {
   answer: VerdictValue
 }
 
+const MIN_KM = 1
+const MAX_KM = 10
+
+/** "Halal", "Halal and Vegan", "Halal, Vegan and Gluten-free". */
+function joinNames(names: string[]): string {
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
 function checkDishes(r: DemoRestaurant, profile: RestrictionProfile): CheckedDish[] {
   return r.dishes.map((dish) => {
     const verdicts = judge(dish.research, profile)
@@ -29,11 +37,13 @@ function checkDishes(r: DemoRestaurant, profile: RestrictionProfile): CheckedDis
 export function RestaurantSearch({ profile, onBack }: Props) {
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [radiusKm, setRadiusKm] = useState(5)
   const names = restrictionNames(profile)
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return DEMO_RESTAURANTS.filter((r) => !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q))
+    return DEMO_RESTAURANTS.filter((r) => r.distanceKm <= radiusKm)
+      .filter((r) => !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q))
       .map((r) => ({ r, fits: checkDishes(r, profile).filter((d) => d.answer === 'fits').length }))
       // Most fitting dishes first. Cuisine preferences only break ties (GLOSSARY), then distance.
       .sort(
@@ -42,7 +52,10 @@ export function RestaurantSearch({ profile, onBack }: Props) {
           Number(profile.cuisines.includes(b.r.cuisine)) - Number(profile.cuisines.includes(a.r.cuisine)) ||
           a.r.distanceKm - b.r.distanceKm,
       )
-  }, [query, profile])
+  }, [query, profile, radiusKm])
+
+  const dishTotal = results.reduce((n, { r }) => n + r.dishes.length, 0)
+  const fitTotal = results.reduce((n, { fits }) => n + fits, 0)
 
   const opened = DEMO_RESTAURANTS.find((r) => r.id === openId)
   if (opened) return <RestaurantDetail restaurant={opened} profile={profile} onBack={() => setOpenId(null)} />
@@ -67,6 +80,34 @@ export function RestaurantSearch({ profile, onBack }: Props) {
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search restaurants or cuisines" aria-label="Search restaurants" />
       </label>
 
+      <section className="rs-radius" aria-label="Search distance">
+        <div className="rs-radius-head">
+          <span><LocateFixed size={15} /><span>Within <strong>{radiusKm} km</strong> of you</span></span>
+          <span className="rs-radius-count">{results.length} {results.length === 1 ? 'place' : 'places'}</span>
+        </div>
+        <input
+          type="range"
+          min={MIN_KM}
+          max={MAX_KM}
+          step={1}
+          value={radiusKm}
+          onChange={(e) => setRadiusKm(Number(e.target.value))}
+          aria-label="Search radius in kilometres"
+          style={{ ['--fill' as string]: `${((radiusKm - MIN_KM) / (MAX_KM - MIN_KM)) * 100}%` }}
+        />
+        <div className="rs-radius-scale"><span>{MIN_KM} km</span><span>{MAX_KM} km</span></div>
+      </section>
+
+      {names.length > 0 && results.length > 0 && (
+        <p className="rs-xref">
+          <ListChecks size={16} />
+          <span>
+            Cross-referenced <strong>{joinNames(names)}</strong> against all {dishTotal} dishes at {results.length}{' '}
+            {results.length === 1 ? 'restaurant' : 'restaurants'} within {radiusKm} km. <strong>{fitTotal}</strong> {fitTotal === 1 ? 'fits' : 'fit'} you.
+          </span>
+        </p>
+      )}
+
       <div className="rs-list">
         {results.map(({ r, fits }) => (
           <button key={r.id} type="button" className="rs-card" onClick={() => setOpenId(r.id)}>
@@ -83,7 +124,11 @@ export function RestaurantSearch({ profile, onBack }: Props) {
             <ChevronRight size={18} className="rs-chev" />
           </button>
         ))}
-        {!results.length && <p className="rs-empty">No restaurants match “{query}”.</p>}
+        {!results.length && (
+          <p className="rs-empty">
+            {query.trim() ? <>No restaurants match “{query}” within {radiusKm} km.</> : <>No restaurants within {radiusKm} km. Try a wider range.</>}
+          </p>
+        )}
       </div>
     </main>
   )
@@ -97,7 +142,9 @@ const GROUPS: { value: VerdictValue; title: string }[] = [
 
 function RestaurantDetail({ restaurant, profile, onBack }: { restaurant: DemoRestaurant; profile: RestrictionProfile; onBack: () => void }) {
   const dishes = checkDishes(restaurant, profile)
-  const checking = restrictionNames(profile).length > 0
+  const names = restrictionNames(profile)
+  const checking = names.length > 0
+  const fitCount = dishes.filter((d) => d.answer === 'fits').length
 
   return (
     <main className="page rs">
@@ -113,6 +160,18 @@ function RestaurantDetail({ restaurant, profile, onBack }: { restaurant: DemoRes
         </p>
       </div>
 
+      {checking && (
+        <p className="rs-xref">
+          <ListChecks size={16} />
+          <span>
+            Cross-referenced <strong>{joinNames(names)}</strong> against all {dishes.length} items on the menu.{' '}
+            {fitCount
+              ? <>Every dish that's {joinNames(names)} is listed below: <strong>{fitCount} of {dishes.length}</strong>.</>
+              : <>No dish is confirmed {joinNames(names)} yet.</>}
+          </span>
+        </p>
+      )}
+
       {!checking && (
         <div className="rs-group">
           {dishes.map((d) => <DishRow key={d.dish.name} item={d} showVerdict={false} />)}
@@ -126,7 +185,7 @@ function RestaurantDetail({ restaurant, profile, onBack }: { restaurant: DemoRes
           return (
             <section key={g.value} className="rs-group">
               <h2 className={`rs-group-title rs-${g.value}`}>
-                <span className="rs-dot" /> {g.title} <span>{items.length}</span>
+                <span className="rs-dot" /> {g.value === 'fits' ? `Everything that's ${joinNames(names)}` : g.title} <span>{items.length}</span>
               </h2>
               {items.map((d) => <DishRow key={d.dish.name} item={d} showVerdict />)}
             </section>

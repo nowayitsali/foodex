@@ -42,6 +42,11 @@ const saffron = src('Saffron House menu (demo)', 'restaurant_confirmed')
 const dragon = src('Golden Dragon on a delivery app (demo)', 'online_menu')
 const olive = src('Olive & Thyme reviews (demo)', 'community_reported')
 const sakura = src('Sakura Sushi menu (demo)', 'online_menu')
+const noor = src('Al-Noor Grill menu (demo)', 'restaurant_confirmed')
+const napoli = src('Bella Napoli on a delivery app (demo)', 'online_menu')
+const seoul = src('Seoul Kitchen menu (demo)', 'online_menu')
+const istanbul = src('Istanbul Kebab House menu (demo)', 'restaurant_confirmed')
+const fiesta = src('Taco Fiesta reviews (demo)', 'community_reported')
 
 export const DEMO_RESTAURANTS: DemoRestaurant[] = [
   {
@@ -92,6 +97,73 @@ export const DEMO_RESTAURANTS: DemoRestaurant[] = [
       dish('Avocado Roll', 'Avocado and rice in nori', '$8', sakura, ['sushi rice', 'avocado', 'nori', 'rice vinegar'], { mayContain: ['may contain sesame'] }),
       dish('Salmon Nigiri', 'Fresh salmon over rice', '$10', sakura, ['sushi rice', 'salmon', 'rice vinegar']),
       dish('Edamame', 'Steamed soybeans with sea salt', '$6', sakura, ['edamame', 'sea salt']),
+    ],
+  },
+  {
+    id: 'noor',
+    name: 'Al-Noor Grill',
+    cuisine: 'Middle Eastern',
+    distanceKm: 3.4,
+    verification: 'restaurant_confirmed',
+    dishes: [
+      dish('Chicken Shawarma Plate', 'Marinated chicken, rice, garlic sauce', '$17', noor, ['chicken', 'rice', 'garlic', 'lemon', 'olive oil', 'spices'], {
+        certifications: ['Halal certified chicken'],
+      }),
+      dish('Beef Kebab', 'Charcoal-grilled beef skewers', '$19', noor, ['beef', 'onion', 'parsley', 'sumac'], { certifications: ['Halal certified beef'] }),
+      dish('Hummus', 'Chickpeas, tahini, lemon, olive oil', '$7', noor, ['chickpeas', 'tahini', 'lemon', 'garlic', 'olive oil']),
+      dish('Fattoush', 'Crisp pita salad with sumac', '$9', noor, ['lettuce', 'tomato', 'cucumber', 'wheat pita', 'sumac', 'olive oil']),
+    ],
+  },
+  {
+    id: 'napoli',
+    name: 'Bella Napoli',
+    cuisine: 'Italian',
+    distanceKm: 4.7,
+    verification: 'online_menu',
+    dishes: [
+      dish('Margherita Pizza', 'Tomato, mozzarella, basil', '$15', napoli, ['wheat flour', 'tomato', 'mozzarella', 'basil', 'olive oil']),
+      dish('Pepperoni Pizza', 'Tomato, mozzarella, pepperoni', '$17', napoli, ['wheat flour', 'tomato', 'mozzarella', 'pepperoni']),
+      dish('Penne alla Vodka', 'Penne in a creamy tomato vodka sauce', '$16', napoli, ['wheat penne', 'tomato', 'cream', 'vodka', 'parmesan']),
+      dish('Tiramisu', 'Coffee-soaked ladyfingers and mascarpone', '$9', napoli, ['ladyfingers', 'mascarpone cheese', 'coffee', 'egg', 'rum']),
+    ],
+  },
+  {
+    id: 'seoul',
+    name: 'Seoul Kitchen',
+    cuisine: 'Korean',
+    distanceKm: 6.3,
+    verification: 'online_menu',
+    dishes: [
+      dish('Vegetable Bibimbap', 'Rice bowl with vegetables and gochujang', '$14', seoul, ['rice', 'spinach', 'carrot', 'bean sprouts', 'gochujang', 'sesame oil']),
+      dish('Pork Bulgogi', 'Spicy grilled pork', '$18', seoul, ['pork', 'gochujang', 'garlic', 'soy sauce']),
+      dish('Beef Bulgogi', 'Sweet soy-marinated beef', '$19', seoul, ['beef', 'soy sauce', 'pear', 'garlic'], { complete: false }),
+    ],
+  },
+  {
+    id: 'istanbul',
+    name: 'Istanbul Kebab House',
+    cuisine: 'Turkish',
+    distanceKm: 8.1,
+    verification: 'restaurant_confirmed',
+    dishes: [
+      dish('Lamb Doner', 'Shaved lamb, salad, yogurt sauce in bread', '$16', istanbul, ['lamb', 'wheat bread', 'lettuce', 'tomato', 'yogurt'], {
+        certifications: ['Halal certified lamb'],
+      }),
+      dish('Adana Kebab', 'Spiced minced lamb skewer', '$18', istanbul, ['lamb', 'red pepper', 'onion', 'spices'], { certifications: ['Halal certified lamb'] }),
+      dish('Lentil Kofte', 'Red lentil and bulgur patties', '$10', istanbul, ['red lentils', 'bulgur', 'onion', 'parsley', 'olive oil']),
+      dish('Baklava', 'Filo pastry with pistachio and syrup', '$7', istanbul, ['wheat filo', 'pistachio', 'butter', 'sugar syrup']),
+    ],
+  },
+  {
+    id: 'fiesta',
+    name: 'Taco Fiesta',
+    cuisine: 'Mexican',
+    distanceKm: 9.4,
+    verification: 'community_reported',
+    dishes: [
+      dish('Bean Burrito', 'Black beans, rice, salsa, flour tortilla', '$11', fiesta, ['black beans', 'rice', 'tomato salsa', 'wheat tortilla']),
+      dish('Carnitas Tacos', 'Slow-cooked pork, onion, cilantro', '$13', fiesta, ['pork', 'corn tortilla', 'onion', 'cilantro']),
+      dish('Chicken Tacos', 'Grilled chicken, lime, cilantro', '$12', fiesta, ['chicken', 'corn tortilla', 'lime', 'cilantro']),
     ],
   },
 ]
