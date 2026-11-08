@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
+    "@mediapipe/tasks-vision": "1.1.1",
     "@supabase/supabase-js": "^2.119.0",
     "barcode-detector": "3.2.3",
     "cmdk": "^1.1.1",

@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { RestrictionProfile } from '../domain/types'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Barcode, Camera, CameraOff, Plus, QrCode, RotateCcw, ScanLine, Search, ShieldCheck, SwitchCamera } from 'lucide-react'
 import { HintPopover } from '../components/HintPopover'
 import { HomeButton } from '../components/HomeButton'
 import { restrictionNames } from '../components/ui'
 import { SearchPopup } from '../components/SearchPopup'
 import { ShineButton, TextLoop } from '../components/premium'
-import { getDetector, productCode } from '../lib/codes'
+import { getDetector, productCode, type DetectedCode } from '../lib/codes'
+import { getProductDetector, padBox, videoBoxToScreen, type Box } from '../lib/tracking'
 import './scanner.css'
 import type { CheckRequest } from './CheckFlow'
 
@@ -22,6 +23,11 @@ const POPULAR_SEARCHES = ['Nutella', 'Celsius', "Lay's Classic", 'Oreo', 'Kit Ka
 
 // Small photos cost fewer Gemini tokens and still read labels fine.
 const CAPTURE_WIDTH = 768
+
+// How long a box stays after its barcode or product leaves the frame.
+const LOST_AFTER = 500
+// How often the product finder looks. It's slower than the barcode reader.
+const PRODUCT_EVERY = 400
 
 const TIPS = ['Point at a barcode or QR code. It scans by itself.', 'Or point at a package label, then tap to Scan.', 'Snap a restaurant menu.', 'Or the plate in front of you.']
 
@@ -51,6 +57,14 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
   // A code seen in the camera: the product code we're opening, or a notice that it isn't one.
   const [found, setFound] = useState<{ code: string } | { notProduct: true } | null>(null)
   const lastCode = useRef({ code: '', seenAt: 0 })
+  // Boxes drawn on the live view: the barcode being tracked, and a softer one around a product.
+  const [codeBox, setCodeBox] = useState<(Box & { read: boolean }) | null>(null)
+  const [productBox, setProductBox] = useState<Box | null>(null)
+  // When a barcode was last on screen. The product finder waits while one is.
+  const codeSeenAt = useRef(0)
+  const facingRef = useRef(facing)
+  facingRef.current = facing
+  const reduceMotion = useReducedMotion()
   const latest = useRef({ onCapture, hints })
   latest.current = { onCapture, hints }
 
@@ -106,7 +120,9 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let noticeUntil = 0
+    let lastHitAt = 0
     setFound(null)
+    setCodeBox(null)
     // The code that was just checked is probably still in view. Skip it until it leaves the frame.
     lastCode.current.seenAt = Date.now()
 
@@ -117,9 +133,18 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
         const video = videoRef.current
         if (video && video.readyState >= 2 && !document.hidden) {
           try {
-            for (const hit of await detector.detect(video)) {
+            const hits = await detector.detect(video)
+            const now = Date.now()
+            // Box the product code if there is one, else whatever was found.
+            const tracked = hits.find((h) => productCode(h.rawValue)) ?? hits[0]
+            if (tracked && !stopped) {
+              lastHitAt = codeSeenAt.current = now
+              setCodeBox({ ...codeScreenBox(video, tracked), read: false })
+            } else if (now - lastHitAt > LOST_AFTER) {
+              setCodeBox(null)
+            }
+            for (const hit of hits) {
               const code = productCode(hit.rawValue)
-              const now = Date.now()
               if (!code) {
                 if (hit.format === 'qr_code' && now > noticeUntil) {
                   noticeUntil = now + 4000
@@ -132,6 +157,9 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
               lastCode.current = { code, seenAt: now }
               if (again) continue
               stopped = true
+              codeSeenAt.current = Infinity
+              setCodeBox({ ...codeScreenBox(video, hit), read: true })
+              setProductBox(null)
               setFound({ code })
               setShots((n) => n + 1)
               setTimeout(() => latest.current.onCapture({ code, hints: latest.current.hints.trim() }), 450)
@@ -141,7 +169,8 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
             // A frame that can't be read; try the next one.
           }
         }
-        timer = setTimeout(tick, 250)
+        // Look more often while following a code, so the box keeps up.
+        timer = setTimeout(tick, Date.now() - lastHitAt < LOST_AFTER ? 100 : 250)
       }
       tick()
     })
@@ -151,6 +180,63 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
       clearTimeout(timer)
     }
   }, [active, cam.status])
+
+  // While no barcode is in view, box the most likely food or drink. A visual hint only:
+  // it doesn't scan anything. Skipped quietly if the model can't load.
+  useEffect(() => {
+    if (!active || cam.status !== 'live') return
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let lastHitAt = 0
+    setProductBox(null)
+
+    getProductDetector().then((detector) => {
+      if (!detector || stopped) return
+      const tick = () => {
+        if (stopped) return
+        const video = videoRef.current
+        const now = Date.now()
+        if (now - codeSeenAt.current < LOST_AFTER) {
+          setProductBox(null)
+        } else if (video && video.readyState >= 2 && video.videoWidth && !document.hidden) {
+          try {
+            const box = detector.detect(video, performance.now())
+            if (box) {
+              lastHitAt = now
+              setProductBox(padBox(toScreen(video, box), 6))
+            } else if (now - lastHitAt > LOST_AFTER) {
+              setProductBox(null)
+            }
+          } catch {
+            setProductBox(null)
+          }
+        }
+        timer = setTimeout(tick, PRODUCT_EVERY)
+      }
+      tick()
+    })
+
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
+  }, [active, cam.status])
+
+  function toScreen(video: HTMLVideoElement, box: Box) {
+    return videoBoxToScreen(
+      box,
+      { width: video.videoWidth, height: video.videoHeight },
+      { width: video.clientWidth, height: video.clientHeight },
+      facingRef.current === 'user',
+    )
+  }
+
+  function codeScreenBox(video: HTMLVideoElement, hit: DetectedCode) {
+    const { x, y, width, height } = hit.boundingBox
+    return padBox(toScreen(video, { x, y, width, height }), 8)
+  }
+
+  const boxMotion = reduceMotion ? { duration: 0 } : { type: 'spring' as const, stiffness: 420, damping: 34, mass: 0.7 }
 
   function capture() {
     const video = videoRef.current
@@ -181,6 +267,32 @@ export function Scanner({ active, profile, onCapture, menu, onHome, onEditRestri
         autoPlay
       />
       <div className="sx-vignette" aria-hidden />
+      <div className="sx-track" aria-hidden>
+        <AnimatePresence>
+          {productBox && !codeBox && (
+            <motion.div
+              key="product"
+              className="sx-track-product"
+              initial={{ ...productBox, opacity: 0 }}
+              animate={{ ...productBox, opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 160, damping: 26 }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {codeBox && (
+            <motion.div
+              key="code"
+              className={`sx-track-code${codeBox.read ? ' sx-track-read' : ''}`}
+              initial={{ x: codeBox.x, y: codeBox.y, width: codeBox.width, height: codeBox.height, opacity: 0, scale: reduceMotion ? 1 : 1.12 }}
+              animate={{ x: codeBox.x, y: codeBox.y, width: codeBox.width, height: codeBox.height, opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.2 } }}
+              transition={boxMotion}
+            />
+          )}
+        </AnimatePresence>
+      </div>
       <AnimatePresence>
         {flash && (
           <motion.div className="scanner-flash" initial={{ opacity: 0.8 }} animate={{ opacity: 0.8 }} exit={{ opacity: 0, transition: { duration: 0.35 } }} />
