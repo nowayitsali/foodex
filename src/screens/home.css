@@ -16,11 +16,16 @@
 .hm button:focus-visible { outline: 3px solid #7c9868; outline-offset: 2px; }
 
 .hm-nav { max-width: 560px; margin: 0 auto; height: 80px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
-.hm .foodex-home-button { color: var(--hm-ink); }
-.hm .foodex-home-icon { background: #e4ebd8; color: var(--hm-ink); }
-.hm .foodex-home-wordmark { font-size: 26px; }
-.hm-login { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 30px; border: 1px solid #d8dccd; background: transparent; color: var(--hm-ink); font-size: 13px; }
-.hm-login:hover { background: #efede3; }
+.hm-wordmark { font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 750; letter-spacing: -1.4px; line-height: 1; color: var(--hm-ink); }
+.hm-wordmark > span { color: #849965; }
+/* Signed in: a quiet sage pill. Signed out: a solid green one, since logging in is the next step. */
+.hm-login { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 15px 0 13px; border-radius: 30px; border: 0; background: #e8ecdc; color: var(--hm-ink); font-size: 13px; font-weight: 600; transition: background 0.15s, transform 0.1s; }
+.hm-login:hover:not(:disabled) { background: #dde4cc; }
+.hm-login:active:not(:disabled) { transform: scale(0.97); }
+.hm-login svg { opacity: 0.75; }
+.hm-login-primary { padding: 0 13px 0 16px; background: #264c3b; color: #f9f7f1; }
+.hm-login-primary:hover:not(:disabled) { background: #132c21; }
+.hm-login-primary svg { opacity: 1; }
 
 .hm-main { max-width: 560px; margin: 0 auto; padding: 16px 20px 170px; }
 .hm-main h1 { margin: 0; font-size: 40px; line-height: 1.08; letter-spacing: -1.6px; font-weight: 500; }

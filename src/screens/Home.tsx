@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ArrowUpRight, Check, LogOut, MapPin, ScanLine } from 'lucide-react'
 import type { CustomRestriction, RestrictionId, RestrictionProfile } from '../domain/types'
 import { RESTRICTIONS } from '../domain/restrictions'
-import { HomeButton } from '../components/HomeButton'
 import './home.css'
 
 // The main page: one vertical checklist of restrictions, then Scan or Find restaurants.
@@ -42,7 +41,7 @@ interface Props {
   onRestaurants: (p: RestrictionProfile) => void
 }
 
-export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, onScan, onRestaurants }: Props) {
+export function Home({ profile, signedIn, onSave, onSignOut, onLogin, onScan, onRestaurants }: Props) {
   const [selected, setSelected] = useState<RestrictionId[]>([...profile.restrictions])
   const [other, setOther] = useState<Record<OtherCategory, string>>(() => ({
     religious: profile.custom.filter((c) => c.category === 'religious').map((c) => c.text).join(', '),
@@ -78,9 +77,9 @@ export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, on
   return (
     <div className="hm">
       <header className="hm-nav">
-        <HomeButton onHome={onHome} />
-        <button type="button" className="hm-login" disabled={busy} onClick={signedIn ? signOut : onLogin}>
-          {signedIn ? <>Sign out <LogOut size={14} /></> : <>Log in <ArrowUpRight size={14} /></>}
+        <span className="hm-wordmark">foodex<span>.</span></span>
+        <button type="button" className={`hm-login${signedIn ? '' : ' hm-login-primary'}`} disabled={busy} onClick={signedIn ? signOut : onLogin}>
+          {signedIn ? <><LogOut size={15} strokeWidth={2} /> Sign out</> : <>Log in <ArrowUpRight size={15} strokeWidth={2} /></>}
         </button>
       </header>
 
