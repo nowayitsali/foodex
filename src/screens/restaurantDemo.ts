@@ -47,6 +47,8 @@ const napoli = src('Bella Napoli on a delivery app (demo)', 'online_menu')
 const seoul = src('Seoul Kitchen menu (demo)', 'online_menu')
 const istanbul = src('Istanbul Kebab House menu (demo)', 'restaurant_confirmed')
 const fiesta = src('Taco Fiesta reviews (demo)', 'community_reported')
+const smoke = src('Smokehouse BBQ menu (demo)', 'online_menu')
+const bistro = src('Le Petit Bistro menu (demo)', 'online_menu')
 
 export const DEMO_RESTAURANTS: DemoRestaurant[] = [
   {
@@ -164,6 +166,30 @@ export const DEMO_RESTAURANTS: DemoRestaurant[] = [
       dish('Bean Burrito', 'Black beans, rice, salsa, flour tortilla', '$11', fiesta, ['black beans', 'rice', 'tomato salsa', 'wheat tortilla']),
       dish('Carnitas Tacos', 'Slow-cooked pork, onion, cilantro', '$13', fiesta, ['pork', 'corn tortilla', 'onion', 'cilantro']),
       dish('Chicken Tacos', 'Grilled chicken, lime, cilantro', '$12', fiesta, ['chicken', 'corn tortilla', 'lime', 'cilantro']),
+    ],
+  },
+  {
+    id: 'smoke',
+    name: 'Smokehouse BBQ',
+    cuisine: 'American',
+    distanceKm: 2.9,
+    verification: 'online_menu',
+    dishes: [
+      dish('Pork Ribs', 'Slow-smoked ribs with BBQ sauce', '$24', smoke, ['pork ribs', 'bbq sauce', 'spices']),
+      dish('Pulled Pork Sandwich', 'Smoked pork shoulder on a bun', '$15', smoke, ['pork', 'wheat bun', 'coleslaw']),
+      dish('Bacon Mac and Cheese', 'Macaroni, cheddar and bacon', '$12', smoke, ['wheat macaroni', 'cheddar', 'milk', 'bacon']),
+    ],
+  },
+  {
+    id: 'bistro',
+    name: 'Le Petit Bistro',
+    cuisine: 'French',
+    distanceKm: 5.6,
+    verification: 'online_menu',
+    dishes: [
+      dish('Coq au Vin', 'Chicken braised in red wine', '$26', bistro, ['chicken', 'red wine', 'mushrooms', 'bacon']),
+      dish('Croque Monsieur', 'Ham and gruyere toastie', '$14', bistro, ['wheat bread', 'ham', 'gruyere cheese', 'butter']),
+      dish('French Onion Soup', 'Onion soup with wine and melted cheese', '$11', bistro, ['onion', 'beef stock', 'white wine', 'gruyere cheese']),
     ],
   },
 ]

@@ -1,22 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronRight, ListChecks, LocateFixed, MapPin, Search, ShieldCheck } from 'lucide-react'
-import type { RestrictionProfile, Verdict, VerdictValue } from '../domain/types'
+import { ArrowLeft, Check, ListChecks, LocateFixed, MapPin, Search, ShieldCheck } from 'lucide-react'
+import type { RestrictionProfile } from '../domain/types'
 import { judge, overall } from '../domain/verdicts'
-import { restrictionNames, SOURCE_KIND_LABELS, VERDICT_LABELS } from '../components/ui'
-import { DEMO_RESTAURANTS, type DemoDish, type DemoRestaurant } from './restaurantDemo'
+import { restrictionNames } from '../components/ui'
+import { DEMO_RESTAURANTS, type DemoRestaurant } from './restaurantDemo'
 
 // Layout only: real restaurant search is a later slice. Uses demo data.
-// Verdicts still come from judge() on this device (ADR 0001).
+// Each restaurant's menu is checked with judge() on this device (ADR 0001),
+// but only restaurants are shown, not their menu items.
 
 interface Props {
   profile: RestrictionProfile
   onBack: () => void
-}
-
-interface CheckedDish {
-  dish: DemoDish
-  verdicts: Verdict[]
-  answer: VerdictValue
 }
 
 const MIN_KM = 1
@@ -27,38 +22,38 @@ function joinNames(names: string[]): string {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
-function checkDishes(r: DemoRestaurant, profile: RestrictionProfile): CheckedDish[] {
-  return r.dishes.map((dish) => {
-    const verdicts = judge(dish.research, profile)
-    return { dish, verdicts, answer: overall(verdicts) }
-  })
+/** True when at least one dish on the menu fits every restriction. */
+function servesFittingFood(r: DemoRestaurant, profile: RestrictionProfile): boolean {
+  return r.dishes.some((dish) => overall(judge(dish.research, profile)) === 'fits')
 }
 
 export function RestaurantSearch({ profile, onBack }: Props) {
   const [query, setQuery] = useState('')
-  const [openId, setOpenId] = useState<string | null>(null)
   const [radiusKm, setRadiusKm] = useState(5)
   const names = restrictionNames(profile)
+  const checking = names.length > 0
 
-  const results = useMemo(() => {
+  const nearby = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return DEMO_RESTAURANTS.filter((r) => r.distanceKm <= radiusKm)
-      .filter((r) => !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q))
-      .map((r) => ({ r, fits: checkDishes(r, profile).filter((d) => d.answer === 'fits').length }))
-      // Most fitting dishes first. Cuisine preferences only break ties (GLOSSARY), then distance.
-      .sort(
-        (a, b) =>
-          b.fits - a.fits ||
-          Number(profile.cuisines.includes(b.r.cuisine)) - Number(profile.cuisines.includes(a.r.cuisine)) ||
-          a.r.distanceKm - b.r.distanceKm,
-      )
-  }, [query, profile, radiusKm])
+    return DEMO_RESTAURANTS.filter((r) => r.distanceKm <= radiusKm).filter(
+      (r) => !q || r.name.toLowerCase().includes(q) || r.cuisine.toLowerCase().includes(q),
+    )
+  }, [query, radiusKm])
 
-  const dishTotal = results.reduce((n, { r }) => n + r.dishes.length, 0)
-  const fitTotal = results.reduce((n, { fits }) => n + fits, 0)
+  const results = useMemo(
+    () =>
+      nearby
+        .filter((r) => !checking || servesFittingFood(r, profile))
+        // Preferred cuisines first (GLOSSARY), then closest.
+        .sort(
+          (a, b) =>
+            Number(profile.cuisines.includes(b.cuisine)) - Number(profile.cuisines.includes(a.cuisine)) ||
+            a.distanceKm - b.distanceKm,
+        ),
+    [nearby, checking, profile],
+  )
 
-  const opened = DEMO_RESTAURANTS.find((r) => r.id === openId)
-  if (opened) return <RestaurantDetail restaurant={opened} profile={profile} onBack={() => setOpenId(null)} />
+  const placeWord = (n: number) => (n === 1 ? 'restaurant' : 'restaurants')
 
   return (
     <main className="page rs">
@@ -71,7 +66,7 @@ export function RestaurantSearch({ profile, onBack }: Props) {
         <h1 className="cr-title">Where can <em>you eat?</em></h1>
         <p className="rs-checking">
           <ShieldCheck size={15} />
-          {names.length ? <>Checking every dish for <strong>{names.join(', ')}</strong></> : 'Add restrictions in Settings to check dishes.'}
+          {checking ? <span>Finding restaurants that serve <strong>{joinNames(names)}</strong> food</span> : 'Add restrictions in Settings to check restaurants.'}
         </p>
       </div>
 
@@ -98,118 +93,37 @@ export function RestaurantSearch({ profile, onBack }: Props) {
         <div className="rs-radius-scale"><span>{MIN_KM} km</span><span>{MAX_KM} km</span></div>
       </section>
 
-      {names.length > 0 && results.length > 0 && (
+      {checking && nearby.length > 0 && (
         <p className="rs-xref">
           <ListChecks size={16} />
           <span>
-            Cross-referenced <strong>{joinNames(names)}</strong> against all {dishTotal} dishes at {results.length}{' '}
-            {results.length === 1 ? 'restaurant' : 'restaurants'} within {radiusKm} km. <strong>{fitTotal}</strong> {fitTotal === 1 ? 'fits' : 'fit'} you.
+            Cross-referenced <strong>{joinNames(names)}</strong> against the full menus of {nearby.length} {placeWord(nearby.length)} within {radiusKm} km.{' '}
+            <strong>{results.length}</strong> {results.length === 1 ? 'serves' : 'serve'} food that fits you.
           </span>
         </p>
       )}
 
       <div className="rs-list">
-        {results.map(({ r, fits }) => (
-          <button key={r.id} type="button" className="rs-card" onClick={() => setOpenId(r.id)}>
+        {results.map((r) => (
+          <article key={r.id} className="rs-card">
             <span className="rs-initial">{r.name[0]}</span>
             <span className="rs-card-main">
               <strong>{r.name}</strong>
               <span className="rs-meta">{r.cuisine} · <MapPin size={12} /> {r.distanceKm.toFixed(1)} km</span>
+              {checking && <span className="rs-serves"><Check size={13} /> Serves {joinNames(names)} food</span>}
             </span>
-            {names.length > 0 && (
-              <span className={`rs-count${fits ? '' : ' rs-count-none'}`}>
-                <b>{fits}/{r.dishes.length}</b> fit
-              </span>
-            )}
-            <ChevronRight size={18} className="rs-chev" />
-          </button>
+          </article>
         ))}
         {!results.length && (
           <p className="rs-empty">
-            {query.trim() ? <>No restaurants match “{query}” within {radiusKm} km.</> : <>No restaurants within {radiusKm} km. Try a wider range.</>}
+            {query.trim()
+              ? <>No restaurants match “{query}” within {radiusKm} km.</>
+              : checking
+                ? <>No restaurants within {radiusKm} km serve {joinNames(names)} food. Try a wider range.</>
+                : <>No restaurants within {radiusKm} km. Try a wider range.</>}
           </p>
         )}
       </div>
     </main>
-  )
-}
-
-const GROUPS: { value: VerdictValue; title: string }[] = [
-  { value: 'fits', title: 'Fits you' },
-  { value: 'not_enough_info', title: 'Not enough info' },
-  { value: 'doesnt_fit', title: "Doesn't fit" },
-]
-
-function RestaurantDetail({ restaurant, profile, onBack }: { restaurant: DemoRestaurant; profile: RestrictionProfile; onBack: () => void }) {
-  const dishes = checkDishes(restaurant, profile)
-  const names = restrictionNames(profile)
-  const checking = names.length > 0
-  const fitCount = dishes.filter((d) => d.answer === 'fits').length
-
-  return (
-    <main className="page rs">
-      <header className="rs-top">
-        <button type="button" className="icon-btn" onClick={onBack} aria-label="Back to restaurants"><ArrowLeft size={18} /></button>
-        <span className="rs-demo">Demo data</span>
-      </header>
-
-      <div className="rs-intro">
-        <h1 className="cr-title">{restaurant.name}</h1>
-        <p className="rs-meta rs-meta-lg">
-          {restaurant.cuisine} · <MapPin size={13} /> {restaurant.distanceKm.toFixed(1)} km · Menu: {SOURCE_KIND_LABELS[restaurant.verification].toLowerCase()}
-        </p>
-      </div>
-
-      {checking && (
-        <p className="rs-xref">
-          <ListChecks size={16} />
-          <span>
-            Cross-referenced <strong>{joinNames(names)}</strong> against all {dishes.length} items on the menu.{' '}
-            {fitCount
-              ? <>Every dish that's {joinNames(names)} is listed below: <strong>{fitCount} of {dishes.length}</strong>.</>
-              : <>No dish is confirmed {joinNames(names)} yet.</>}
-          </span>
-        </p>
-      )}
-
-      {!checking && (
-        <div className="rs-group">
-          {dishes.map((d) => <DishRow key={d.dish.name} item={d} showVerdict={false} />)}
-        </div>
-      )}
-
-      {checking &&
-        GROUPS.map((g) => {
-          const items = dishes.filter((d) => d.answer === g.value)
-          if (!items.length) return null
-          return (
-            <section key={g.value} className="rs-group">
-              <h2 className={`rs-group-title rs-${g.value}`}>
-                <span className="rs-dot" /> {g.value === 'fits' ? `Everything that's ${joinNames(names)}` : g.title} <span>{items.length}</span>
-              </h2>
-              {items.map((d) => <DishRow key={d.dish.name} item={d} showVerdict />)}
-            </section>
-          )
-        })}
-    </main>
-  )
-}
-
-function DishRow({ item, showVerdict }: { item: CheckedDish; showVerdict: boolean }) {
-  // The reason to show: the first restriction that decided the answer.
-  const why = item.verdicts.find((v) => v.value === item.answer && item.answer !== 'fits')
-  return (
-    <article className="rs-dish">
-      <div className="rs-dish-head">
-        <strong>{item.dish.name}</strong>
-        <span className="rs-price">{item.dish.price}</span>
-      </div>
-      <p>{item.dish.description}</p>
-      {showVerdict && why && (
-        <p className={`rs-why rs-${item.answer}`}>
-          {VERDICT_LABELS[item.answer]} for {why.label}: {why.reason}
-        </p>
-      )}
-    </article>
   )
 }
