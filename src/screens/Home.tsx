@@ -1,12 +1,29 @@
 import { useState } from 'react'
 import { ArrowUpRight, Check, LogOut, MapPin, ScanLine } from 'lucide-react'
-import type { RestrictionId, RestrictionProfile } from '../domain/types'
+import type { CustomRestriction, RestrictionId, RestrictionProfile } from '../domain/types'
 import { RESTRICTIONS } from '../domain/restrictions'
 import { HomeButton } from '../components/HomeButton'
 import './home.css'
 
 // The main page: one vertical checklist of restrictions, then Scan or Find restaurants.
-// Custom restrictions and cuisines from the saved profile are kept as they are (edited in Settings).
+// Cuisines from the saved profile are kept as they are (edited in Settings).
+
+type OtherCategory = CustomRestriction['category']
+
+const OTHER_HINT: Record<OtherCategory, string> = {
+  religious: 'e.g. Jain, no beef',
+  medical: 'e.g. mustard, celery',
+}
+
+/** "mustard, celery" -> two Custom restrictions. */
+function splitOther(text: string, category: OtherCategory): CustomRestriction[] {
+  const seen = new Set<string>()
+  return text
+    .split(/[,;\n]/)
+    .map((t) => t.trim())
+    .filter((t) => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()))
+    .map((t) => ({ category, text: t }))
+}
 
 const GROUPS = [
   { category: 'religious', title: 'Faith' },
@@ -27,6 +44,12 @@ interface Props {
 
 export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, onScan, onRestaurants }: Props) {
   const [selected, setSelected] = useState<RestrictionId[]>([...profile.restrictions])
+  const [other, setOther] = useState<Record<OtherCategory, string>>(() => ({
+    religious: profile.custom.filter((c) => c.category === 'religious').map((c) => c.text).join(', '),
+    medical: profile.custom.filter((c) => c.category === 'medical').map((c) => c.text).join(', '),
+  }))
+  const custom = [...splitOther(other.religious, 'religious'), ...splitOther(other.medical, 'medical')]
+  const count = selected.length + custom.length
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +59,7 @@ export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, on
     if (busy) return
     setBusy(true)
     setError(null)
-    const next: RestrictionProfile = { ...profile, restrictions: RESTRICTIONS.filter((r) => selected.includes(r.id)).map((r) => r.id) }
+    const next: RestrictionProfile = { ...profile, restrictions: RESTRICTIONS.filter((r) => selected.includes(r.id)).map((r) => r.id), custom }
     try {
       await onSave(next)
       if (destination === 'scan') onScan()
@@ -80,6 +103,20 @@ export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, on
                   </li>
                 )
               })}
+              {(g.category === 'religious' || g.category === 'medical') && (
+                <li>
+                  <label className="hm-other">
+                    <span>Other</span>
+                    <input
+                      type="text"
+                      value={other[g.category]}
+                      onChange={(e) => setOther({ ...other, [g.category]: e.target.value })}
+                      placeholder={OTHER_HINT[g.category]}
+                      aria-label={`Other ${g.title.toLowerCase()} restrictions, separated by commas`}
+                    />
+                  </label>
+                </li>
+              )}
             </ul>
           </section>
         ))}
@@ -96,7 +133,7 @@ export function Home({ profile, signedIn, onSave, onSignOut, onHome, onLogin, on
             <MapPin size={17} /> Find restaurants
           </button>
         </div>
-        <p className="hm-count">{selected.length ? `${selected.length} selected` : 'Nothing selected yet'}</p>
+        <p className="hm-count">{count ? `${count} selected` : 'Nothing selected yet'}</p>
       </div>
     </div>
   )

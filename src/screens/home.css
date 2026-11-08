@@ -52,3 +52,10 @@
   .hm-main h1 { font-size: 34px; }
   .hm-btn { font-size: 14px; padding: 0 8px; gap: 7px; white-space: nowrap; }
 }
+
+/* "Other": free text for restrictions not in the list. */
+.hm-other { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 4px; }
+.hm-other > span { flex: none; font-size: 17px; color: var(--hm-muted); }
+.hm-other input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #d6dbcc; background: #fffefa; color: var(--hm-ink); font: inherit; font-size: 16px; outline: none; }
+.hm-other input:focus { border-color: #7c9868; box-shadow: 0 0 0 3px #e4ebd8; }
+.hm-other input::placeholder { color: #a3aa98; }

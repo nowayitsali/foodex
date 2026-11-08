@@ -71,11 +71,28 @@ function judgeRule(rule: RestrictionRule, research: Research): Verdict {
   return { ...base, value: 'fits', reason: 'No conflicting ingredients in the full ingredient list.', evidence: ingredients }
 }
 
+// An allergy or intolerance typed as a plain ingredient name ("mustard", "no garlic", "corn-free")
+// can be checked against a full ingredient list. Anything else ("low FODMAP", "Jain") is a
+// description, not an ingredient, so the rules can't confirm it.
+const DESCRIPTION_WORDS = /\b(low|high|diet|fodmap|keto|paleo|reduced|less|added|natural|organic|processed|style)\b/i
+
+function ingredientName(custom: CustomRestriction): string | undefined {
+  if (custom.category !== 'medical') return undefined
+  const core = custom.text.trim().toLowerCase().replace(/^no\s+/, '').replace(/[\s-]+free$/, '').trim()
+  if (!/^[a-z]+(?:[ '-][a-z]+){0,2}$/.test(core) || DESCRIPTION_WORDS.test(core)) return undefined
+  return core
+}
+
 function judgeCustom(custom: CustomRestriction, research: Research): Verdict {
   const text = custom.text.trim()
   const base = { restrictionKey: `custom:${text.toLowerCase()}`, label: text }
-  const found = research.findings.filter(isContent).filter((f) => firstMatch(f.text, [text.toLowerCase()]))
-  if (found.length) return { ...base, value: 'doesnt_fit', reason: `Mentions ${text}.`, evidence: found }
+  const word = ingredientName(custom) ?? text.toLowerCase()
+  const content = research.findings.filter(isContent)
+  const found = content.filter((f) => firstMatch(f.text, [word]))
+  if (found.length) return { ...base, value: 'doesnt_fit', reason: `Mentions ${word}.`, evidence: found }
+  if (ingredientName(custom) && research.ingredientsComplete && content.length) {
+    return { ...base, value: 'fits', reason: `No ${word} in the full ingredient list.`, evidence: content }
+  }
   return { ...base, value: 'not_enough_info', reason: `Foodex can't confirm "${text}" automatically. Check the Sources.`, evidence: [] }
 }
 

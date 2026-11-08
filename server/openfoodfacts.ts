@@ -5,10 +5,11 @@ import type { Finding, Identification, Research, Source } from '../src/domain/ty
 // Data is community-contributed and licensed under ODbL; the UI credits it.
 
 const USER_AGENT = 'Foodex/0.1 (hackathon prototype)'
-const PRODUCT_FIELDS = 'code,product_name,brands,image_front_small_url,ingredients_text,ingredients_text_en,allergens_tags,traces_tags,labels_tags,states_tags'
+const PRODUCT_FIELDS = 'code,lang,product_name,brands,image_front_small_url,ingredients_text,ingredients_text_en,allergens_tags,traces_tags,labels_tags,states_tags'
 const TIMEOUT_MS = 10_000
 
 export interface OffProduct {
+  lang?: string
   image_front_small_url?: string
   code: string
   product_name?: string
@@ -23,6 +24,8 @@ export interface OffProduct {
 
 export interface OffHit {
   code: string
+  states_tags?: string[]
+  unique_scans_n?: number
   product_name?: string
   brands?: string | string[]
   image_front_small_url?: string
@@ -52,6 +55,13 @@ export function splitIngredients(text: string): string[] {
   return out.map((s) => s.replace(/\s*\d+([.,]\d+)?\s*%/g, '').replace(/[.\s]+$/, '').trim()).filter(Boolean)
 }
 
+/** The product's ingredient list in English, or '' when there is none. */
+export function englishIngredients(p: OffProduct): string {
+  const en = (p.ingredients_text_en ?? '').trim()
+  if (en) return en
+  return p.lang === 'en' ? (p.ingredients_text ?? '').trim() : ''
+}
+
 export function productToResearch(p: OffProduct): Research {
   const source: Source = {
     title: `Open Food Facts: ${p.product_name || p.code}`,
@@ -59,7 +69,9 @@ export function productToResearch(p: OffProduct): Research {
     kind: 'community_reported',
   }
   const finding = (type: Finding['type'], text: string): Finding => ({ type, text, source })
-  const ingredientsText = (p.ingredients_text_en || p.ingredients_text || '').trim()
+  // The rules match English words, so only an English ingredient list can count as complete.
+  // Text in another language could hide a conflict ("lait" is milk) and wrongly pass.
+  const ingredientsText = englishIngredients(p)
   const tags = (list?: string[]) => (list ?? []).map(englishTag).filter((t): t is string => !!t)
 
   const findings: Finding[] = [
@@ -110,9 +122,23 @@ export async function searchProducts(query: string, limit = 4): Promise<Identifi
   if (!key) return []
   const cached = searchCache.get(key)
   if (cached) return cached
-  const url = `https://search.openfoodfacts.org/search?q=${encodeURIComponent(key)}&page_size=${limit}&fields=code,product_name,brands,image_front_small_url`
+  // Open Food Facts has many near-empty duplicate entries. Keep its relevance order, but move
+  // matches with a complete English ingredient list to the front, so a Search lands on a
+  // product Foodex can actually check.
+  const url = `https://search.openfoodfacts.org/search?q=${encodeURIComponent(key)}&page_size=12&fields=code,product_name,brands,image_front_small_url,states_tags,unique_scans_n`
   const data = await getJson(url)
-  const result = hitsToIdentifications(Array.isArray(data?.hits) ? data.hits : [])
+  const hits: OffHit[] = (Array.isArray(data?.hits) ? data.hits : []).filter((h: OffHit) => h.code && h.product_name?.trim())
+  const marked = hits.filter((h) => (h.states_tags ?? []).includes('en:ingredients-completed'))
+  const checked = await Promise.all(
+    marked.slice(0, 4).map(async (h) => ({ h, english: !!englishIngredients((await getProduct(h.code).catch(() => null)) ?? { code: h.code }) })),
+  )
+  const ranked = [
+    ...checked.filter((c) => c.english).map((c) => c.h),
+    ...checked.filter((c) => !c.english).map((c) => c.h),
+    ...marked.slice(4),
+    ...hits.filter((h) => !marked.includes(h)),
+  ]
+  const result = hitsToIdentifications(ranked).slice(0, limit)
   searchCache.set(key, result)
   return result
 }

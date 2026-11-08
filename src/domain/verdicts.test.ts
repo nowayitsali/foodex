@@ -133,5 +133,24 @@ describe('judge', () => {
       const v = only(research([f('ingredient', 'rice')]), profile([], [{ category: 'medical', text: 'low FODMAP' }]))
       expect(v.value).toBe('not_enough_info')
     })
+
+    it('says Fits when an allergy typed as an ingredient is absent from a complete list', () => {
+      const p = profile([], [{ category: 'medical', text: 'mustard' }])
+      expect(only(research([f('ingredient', 'rice'), f('ingredient', 'salt')]), p).value).toBe('fits')
+      expect(only(research([f('ingredient', 'rice')], false), p).value).toBe('not_enough_info')
+    })
+
+    it('understands "no X" and "X-free" as the ingredient X', () => {
+      const r = research([f('ingredient', 'garlic powder'), f('ingredient', 'corn starch')])
+      expect(only(r, profile([], [{ category: 'medical', text: 'no garlic' }])).value).toBe('doesnt_fit')
+      expect(only(r, profile([], [{ category: 'medical', text: 'corn-free' }])).value).toBe('doesnt_fit')
+      expect(only(r, profile([], [{ category: 'medical', text: 'celery free' }])).value).toBe('fits')
+    })
+
+    it('keeps faith and diet descriptions as Not enough info even with a complete list', () => {
+      const r = research([f('ingredient', 'rice')])
+      expect(only(r, profile([], [{ category: 'religious', text: 'Jain' }])).value).toBe('not_enough_info')
+      expect(only(r, profile([], [{ category: 'medical', text: 'low sodium' }])).value).toBe('not_enough_info')
+    })
   })
 })

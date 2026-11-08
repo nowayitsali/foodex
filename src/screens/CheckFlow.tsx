@@ -63,6 +63,13 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
   const [step, setStep] = useState<Step>({ kind: 'identifying' })
   // Each call gets a number, so a late answer from an old call is ignored.
   const run = useRef(0)
+  const pageRef = useRef<HTMLDivElement>(null)
+
+  // Each step replaces the content, so start it at the top. Otherwise picking an item
+  // low in a long list leaves the next step out of view, and it looks like nothing happened.
+  useEffect(() => {
+    pageRef.current?.scrollTo({ top: 0 })
+  }, [step.kind, step.kind === 'candidates' ? step.items : null])
 
   function runIdentify(h: string) {
     const id = ++run.current
@@ -120,7 +127,7 @@ export function CheckFlow({ request, profile, onClose, onSearchInstead }: Props)
   const title = step.kind === 'results' ? 'Results' : step.kind === 'researching' ? 'Researching' : 'Identification'
 
   return (
-    <div className="overlay-page" role="dialog" aria-label={title}>
+    <div className="overlay-page" role="dialog" aria-label={title} ref={pageRef}>
       <header className="page-header">
         <span className="icon-btn-spacer" />
         <h1>{title}</h1>
@@ -290,6 +297,18 @@ function Results({ item, result, profile, onWrongItem, onDone }: ResultsProps) {
           <p>You haven't picked any restrictions, so there's nothing to check. Add some in Settings.</p>
         )}
       </div>
+
+      {result.findings.length === 0 && (
+        <div className="note note-warn">
+          <InfoIcon size={18} />
+          <div>
+            <strong>No ingredient data for {item.name}.</strong>{' '}
+            {item.kind === 'dish' || item.kind === 'menu'
+              ? "Foodex can't see what's inside a dish from a photo. Ask the restaurant, or check their menu."
+              : 'Open Food Facts has no ingredient list for it. Scan the barcode on the package, or search for the exact product name.'}
+          </div>
+        </div>
+      )}
 
       {[...verdicts]
         .sort((a, b) => SEVERITY[a.value] - SEVERITY[b.value])
